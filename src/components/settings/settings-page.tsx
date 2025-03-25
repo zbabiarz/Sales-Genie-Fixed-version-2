@@ -13,9 +13,8 @@ import {
 import { ProfileSettings } from "./profile-settings";
 import { PaymentSettings } from "./payment-settings";
 import { SecuritySettings } from "./security-settings";
-import { NotificationSettings } from "./notification-settings";
 import { SubscriptionSettings } from "./subscription-settings";
-import { UserCircle, CreditCard, Lock, Bell, Package } from "lucide-react";
+import { UserCircle, CreditCard, Lock, Package } from "lucide-react";
 
 interface SettingsPageProps {
   user: User;
@@ -34,7 +33,7 @@ export function SettingsPage({ user }: SettingsPageProps) {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-5 mb-8">
+        <TabsList className="grid w-full grid-cols-4 mb-8">
           <TabsTrigger value="profile" className="flex items-center gap-2">
             <UserCircle className="h-4 w-4" />
             <span className="hidden md:inline">Profile</span>
@@ -50,13 +49,6 @@ export function SettingsPage({ user }: SettingsPageProps) {
           <TabsTrigger value="security" className="flex items-center gap-2">
             <Lock className="h-4 w-4" />
             <span className="hidden md:inline">Security</span>
-          </TabsTrigger>
-          <TabsTrigger
-            value="notifications"
-            className="flex items-center gap-2"
-          >
-            <Bell className="h-4 w-4" />
-            <span className="hidden md:inline">Notifications</span>
           </TabsTrigger>
         </TabsList>
 
@@ -74,10 +66,6 @@ export function SettingsPage({ user }: SettingsPageProps) {
 
         <TabsContent value="security">
           <SecuritySettings user={user} />
-        </TabsContent>
-
-        <TabsContent value="notifications">
-          <NotificationSettings user={user} />
         </TabsContent>
       </Tabs>
     </div>

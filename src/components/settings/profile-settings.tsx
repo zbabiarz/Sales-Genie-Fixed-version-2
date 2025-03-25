@@ -42,6 +42,7 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
     setIsLoading(true);
 
     try {
+      // Update user metadata with the form data
       const { error } = await supabase.auth.updateUser({
         data: {
           full_name: formData.fullName,
@@ -55,6 +56,8 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
       toast({
         title: "Profile updated",
         description: "Your profile information has been updated successfully.",
+        variant: "success",
+        className: "bg-green-50 border-green-500",
       });
     } catch (error) {
       console.error("Error updating profile:", error);
@@ -80,15 +83,12 @@ export function ProfileSettings({ user }: ProfileSettingsProps) {
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-4">
           <div className="flex items-center gap-4 mb-6">
-            <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center">
+            <div className="h-20 w-20 rounded-full bg-muted flex items-center justify-center overflow-hidden">
               <UserCircle className="h-12 w-12 text-muted-foreground" />
             </div>
             <div>
               <h3 className="font-medium">{formData.fullName || "User"}</h3>
               <p className="text-sm text-muted-foreground">{formData.email}</p>
-              <Button variant="link" className="p-0 h-auto text-sm">
-                Change profile picture
-              </Button>
             </div>
           </div>
 

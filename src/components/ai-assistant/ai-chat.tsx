@@ -735,7 +735,7 @@ export function AIChat() {
         <div className="flex justify-between items-center">
           <CardTitle className="flex items-center gap-2">
             <RobotIcon className="h-6 w-6" />
-            AI Insurance Assistant
+            AI Insurance Genie
           </CardTitle>
           <div className="flex gap-2">
             <Link href="/dashboard/chat-history">

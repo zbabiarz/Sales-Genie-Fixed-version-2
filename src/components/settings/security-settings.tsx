@@ -36,8 +36,6 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
     newEmail: user.email || "",
     password: "",
   });
-  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
-
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
     setPasswordData((prev) => ({ ...prev, [name]: value }));
@@ -59,9 +57,34 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
       return;
     }
 
+    if (passwordData.newPassword.length < 8) {
+      toast({
+        title: "Password too short",
+        description: "Password must be at least 8 characters long.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsChangingPassword(true);
 
     try {
+      // First verify the current password by attempting a sign-in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email || "",
+        password: passwordData.currentPassword,
+      });
+
+      if (signInError) {
+        toast({
+          title: "Current password is incorrect",
+          description: "Please enter your current password correctly.",
+          variant: "destructive",
+        });
+        setIsChangingPassword(false);
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({
         password: passwordData.newPassword,
       });
@@ -71,6 +94,8 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
       toast({
         title: "Password updated",
         description: "Your password has been updated successfully.",
+        variant: "success",
+        className: "bg-green-50 border-green-500",
       });
 
       setPasswordData({
@@ -96,6 +121,33 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
     setIsChangingEmail(true);
 
     try {
+      // First verify the password by attempting a sign-in
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email || "",
+        password: emailData.password,
+      });
+
+      if (signInError) {
+        toast({
+          title: "Password is incorrect",
+          description:
+            "Please enter your password correctly to change your email.",
+          variant: "destructive",
+        });
+        setIsChangingEmail(false);
+        return;
+      }
+
+      if (emailData.newEmail === user.email) {
+        toast({
+          title: "No change detected",
+          description: "The new email is the same as your current email.",
+          variant: "destructive",
+        });
+        setIsChangingEmail(false);
+        return;
+      }
+
       const { error } = await supabase.auth.updateUser({
         email: emailData.newEmail,
       });
@@ -105,7 +157,12 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
       toast({
         title: "Email update initiated",
         description: "Please check your new email for a confirmation link.",
+        variant: "success",
+        className: "bg-green-50 border-green-500",
       });
+
+      // Reset password field after successful submission
+      setEmailData((prev) => ({ ...prev, password: "" }));
     } catch (error) {
       console.error("Error updating email:", error);
       toast({
@@ -117,17 +174,6 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
     } finally {
       setIsChangingEmail(false);
     }
-  };
-
-  const handleToggleTwoFactor = async () => {
-    // In a real app, this would initiate the 2FA setup process
-    setTwoFactorEnabled(!twoFactorEnabled);
-    toast({
-      title: twoFactorEnabled ? "2FA Disabled" : "2FA Enabled",
-      description: twoFactorEnabled
-        ? "Two-factor authentication has been disabled."
-        : "Two-factor authentication has been enabled.",
-    });
   };
 
   return (
@@ -259,39 +305,6 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Two-Factor Authentication</CardTitle>
-          <CardDescription>
-            Add an extra layer of security to your account
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="space-y-0.5">
-              <h4 className="font-medium">Two-Factor Authentication (2FA)</h4>
-              <p className="text-sm text-muted-foreground">
-                Require a verification code when signing in
-              </p>
-            </div>
-            <Switch
-              checked={twoFactorEnabled}
-              onCheckedChange={handleToggleTwoFactor}
-            />
-          </div>
-
-          {twoFactorEnabled && (
-            <div className="pt-4">
-              <p className="text-sm mb-4">
-                Two-factor authentication is enabled. You will need to enter a
-                verification code when signing in.
-              </p>
-              <Button variant="outline">Manage 2FA Settings</Button>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle>Sessions</CardTitle>
           <CardDescription>
             Manage your active sessions and sign out from other devices
@@ -311,7 +324,33 @@ export function SecuritySettings({ user }: SecuritySettingsProps) {
               </div>
             </div>
 
-            <Button variant="outline" className="w-full">
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={async () => {
+                try {
+                  const { error } = await supabase.auth.signOut({
+                    scope: "others",
+                  });
+                  if (error) throw error;
+                  toast({
+                    title: "Success",
+                    description:
+                      "You have been signed out from all other devices.",
+                    variant: "success",
+                    className: "bg-green-50 border-green-500",
+                  });
+                } catch (error) {
+                  console.error("Error signing out from other devices:", error);
+                  toast({
+                    title: "Error",
+                    description:
+                      "There was a problem signing out from other devices.",
+                    variant: "destructive",
+                  });
+                }
+              }}
+            >
               Sign Out From All Other Devices
             </Button>
           </div>

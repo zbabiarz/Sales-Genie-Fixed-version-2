@@ -112,6 +112,8 @@ export function NotificationSettings({ user }: NotificationSettingsProps) {
       toast({
         title: "Notification settings saved",
         description: "Your notification preferences have been updated.",
+        variant: "success",
+        className: "bg-green-50 border-green-500",
       });
     } catch (error) {
       console.error("Error saving notification settings:", error);

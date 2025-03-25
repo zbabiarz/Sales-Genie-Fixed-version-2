@@ -15,12 +15,8 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import {
-  BrainCircuit,
-  ClipboardCheck,
-  MessageSquareText,
-  Users,
-} from "lucide-react";
+import { ClipboardCheck, MessageSquareText, Users } from "lucide-react";
+import { RobotIcon } from "@/components/robot-icon";
 import { ClientIntakePage } from "@/components/client-intake/client-intake-page";
 import { AIChat } from "@/components/ai-assistant/ai-chat";
 import { CallAnalyzerPage } from "@/components/sales-call/call-analyzer-page";
@@ -87,17 +83,17 @@ export default function Dashboard() {
                 value="ai"
                 className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
               >
-                <BrainCircuit className="h-5 w-5 md:h-4 md:w-4" />
-                <span className="text-[10px] md:text-sm mt-1 md:mt-0 block">
-                  AI
+                <RobotIcon className="h-5 w-5 md:h-4 md:w-4 text-teal-600" />
+                <span className="text-[10px] md:text-sm mt-1 md:mt-0 block font-medium">
+                  AI Chat
                 </span>
               </TabsTrigger>
               <TabsTrigger
                 value="intake"
                 className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
               >
-                <ClipboardCheck className="h-5 w-5 md:h-4 md:w-4" />
-                <span className="text-[10px] md:text-sm mt-1 md:mt-0 block">
+                <ClipboardCheck className="h-5 w-5 md:h-4 md:w-4 text-teal-600" />
+                <span className="text-[10px] md:text-sm mt-1 md:mt-0 block font-medium">
                   Intake
                 </span>
               </TabsTrigger>
@@ -105,8 +101,8 @@ export default function Dashboard() {
                 value="calls"
                 className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
               >
-                <MessageSquareText className="h-5 w-5 md:h-4 md:w-4" />
-                <span className="text-[10px] md:text-sm mt-1 md:mt-0 block">
+                <MessageSquareText className="h-5 w-5 md:h-4 md:w-4 text-teal-600" />
+                <span className="text-[10px] md:text-sm mt-1 md:mt-0 block font-medium">
                   Calls
                 </span>
               </TabsTrigger>
@@ -114,8 +110,8 @@ export default function Dashboard() {
                 value="clients"
                 className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
               >
-                <Users className="h-5 w-5 md:h-4 md:w-4" />
-                <span className="text-[10px] md:text-sm mt-1 md:mt-0 block">
+                <Users className="h-5 w-5 md:h-4 md:w-4 text-teal-600" />
+                <span className="text-[10px] md:text-sm mt-1 md:mt-0 block font-medium">
                   Clients
                 </span>
               </TabsTrigger>

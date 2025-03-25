@@ -5,7 +5,7 @@ export function RobotIcon(props: SVGProps<SVGSVGElement>) {
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 24 24"
-      fill="currentColor"
+      fill="#14b8a6"
       stroke="none"
       width="1.2em"
       height="1.2em"

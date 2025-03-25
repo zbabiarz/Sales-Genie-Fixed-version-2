@@ -46,7 +46,7 @@ export function CallAnalyzer() {
   const supabase = createClient();
   // Direct webhook URL for processing
   const webhookUrl =
-    "https://effortlessai.app.n8n.cloud/webhook/b786cb3c-3398-4d8f-b22e-cf2c78e95eaf";
+    "https://effortlessai.app.n8n.cloud/webhook-test/5735f10d-5868-44b8-884e-cff2b722cb8d";
   const useMockData = false; // Always use the real webhook
   // Supabase edge function URL to receive analysis results
   const analysisWebhookUrl =

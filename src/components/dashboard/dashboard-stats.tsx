@@ -58,7 +58,7 @@ export function DashboardStats() {
         <div className="flex items-center justify-between">
           <div className="text-3xl font-bold">{clientCount}</div>
           <div className="flex items-center text-sm text-green-600">
-            <ArrowUpRight className="mr-1 h-4 w-4" />
+            <ArrowUpRight className="mr-1 h-4 w-4 animate-pulse" />
             <span>New</span>
           </div>
         </div>
@@ -71,7 +71,7 @@ export function DashboardStats() {
         <div className="flex items-center justify-between">
           <div className="text-3xl font-bold">{callCount}</div>
           <div className="flex items-center text-sm text-blue-600">
-            <ArrowUpRight className="mr-1 h-4 w-4" />
+            <ArrowUpRight className="mr-1 h-4 w-4 animate-pulse" />
             <span>Tracked</span>
           </div>
         </div>

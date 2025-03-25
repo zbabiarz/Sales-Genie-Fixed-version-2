@@ -54,21 +54,21 @@ export function QuickActions({
           onClick={handleNewClient}
           className="flex items-center justify-start gap-2 bg-teal-600 hover:bg-teal-700"
         >
-          <UserPlus className="h-4 w-4" />
+          <UserPlus className="h-4 w-4 animate-pulse" />
           <span>New Client</span>
         </Button>
         <Button
           onClick={handleUploadCall}
           className="flex items-center justify-start gap-2 bg-teal-600 hover:bg-teal-700"
         >
-          <Phone className="h-4 w-4" />
+          <Phone className="h-4 w-4 animate-pulse" />
           <span>Upload Call</span>
         </Button>
         <Button
           onClick={handleAskAI}
           className="flex items-center justify-start gap-2 bg-teal-600 hover:bg-teal-700"
         >
-          <MessageSquare className="h-4 w-4" />
+          <MessageSquare className="h-4 w-4 animate-pulse" />
           <span>Ask AI</span>
         </Button>
       </CardContent>
