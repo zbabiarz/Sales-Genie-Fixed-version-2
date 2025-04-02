@@ -46,7 +46,7 @@ export function CallAnalyzer() {
   const supabase = createClient();
   // Direct webhook URL for processing
   const webhookUrl =
-    "https://effortlessai.app.n8n.cloud/webhook-test/5735f10d-5868-44b8-884e-cff2b722cb8d";
+    "https://effortlessai.app.n8n.cloud/webhook-test/b786cb3c-3398-4d8f-b22e-cf2c78e95eaf";
   const useMockData = false; // Always use the real webhook
   // Supabase edge function URL to receive analysis results
   const analysisWebhookUrl =
@@ -184,6 +184,7 @@ export function CallAnalyzer() {
       // Add the recording ID if available
       if (recordingId) {
         formData.append("recordingId", recordingId);
+        console.log("Added recordingId to formData:", recordingId);
       }
 
       console.log(
@@ -238,6 +239,31 @@ export function CallAnalyzer() {
 
       // Check if we have a valid response with transcript and analysis
       if (webhookData && webhookData.transcript && webhookData.analysis) {
+        console.log("Received complete data from webhook");
+
+        // If we have a recordingId, make sure the data is saved to the database
+        if (recordingId) {
+          try {
+            // Send the data directly to our analysis webhook to ensure it's saved
+            const analysisWebhookUrl =
+              "https://uzwpqhhrtfzjgytbadxl.supabase.co/functions/v1/call-analysis-webhook";
+            await fetch(analysisWebhookUrl, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                recordingId: recordingId,
+                transcript: webhookData.transcript,
+                analysis: webhookData.analysis,
+              }),
+            });
+            console.log("Sent data directly to analysis webhook");
+          } catch (webhookError) {
+            console.error("Error sending to analysis webhook:", webhookError);
+          }
+        }
+
         return {
           transcript: webhookData.transcript,
           analysis: webhookData.analysis,

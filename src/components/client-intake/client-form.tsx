@@ -265,6 +265,44 @@ export function ClientForm() {
     setDependents((prev) => prev.filter((dep) => dep.id !== id));
   };
 
+  // Function to calculate age from date of birth
+  const calculateAge = (birthDateString: string) => {
+    if (!birthDateString) return 0;
+
+    const birthDate = new Date(birthDateString);
+    const today = new Date();
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+
+    if (
+      monthDiff < 0 ||
+      (monthDiff === 0 && today.getDate() < birthDate.getDate())
+    ) {
+      age--;
+    }
+
+    return age;
+  };
+
+  // Function to check if a client's age is within a plan's age range
+  const isAgeInRange = (clientAge: number, ageRange: string) => {
+    // Handle 'All Ages' case or empty/null age range
+    if (!ageRange || ageRange === "All Ages") return true;
+
+    // Parse age range in format '18-29', '30-44', '45-54', '55-64', '65+'
+    if (ageRange.endsWith("+")) {
+      // For ranges like '65+'
+      const minAge = parseInt(ageRange.replace("+", ""));
+      return clientAge >= minAge;
+    } else if (ageRange.includes("-")) {
+      // For ranges like '18-29'
+      const [minAge, maxAge] = ageRange.split("-").map(Number);
+      return clientAge >= minAge && clientAge <= maxAge;
+    }
+
+    return false; // If format is unrecognized
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -352,6 +390,10 @@ export function ClientForm() {
           clientData.date_of_birth || clientData._calculatedDob || "",
         height: clientData.height ? parseFloat(clientData.height) : undefined,
         weight: clientData.weight ? parseFloat(clientData.weight) : undefined,
+        // Calculate age from DOB for filtering
+        age: calculateAge(
+          clientData.date_of_birth || clientData._calculatedDob || "",
+        ),
         // Combine standard and custom health conditions/medications
         health_conditions: [
           ...clientData.health_conditions,
@@ -361,6 +403,8 @@ export function ClientForm() {
           ...clientData.medications,
           ...clientData.custom_medications,
         ],
+        // Determine coverage type based on dependents
+        coverage_type: dependents.length > 0 ? "family" : "individual",
         dependents: dependents.map((dep) => ({
           relationship: dep.relationship,
           full_name: dep.full_name,
@@ -388,10 +432,10 @@ export function ClientForm() {
 
         if (error) throw error;
 
-        // Add eligibility status to each plan
+        // Set all plans as eligible
         const plansWithStatus = (data.matchingPlans || []).map((plan) => ({
           ...plan,
-          eligibility_status: Math.random() > 0.7 ? "potential" : "eligible",
+          eligibility_status: "eligible",
         }));
 
         setMatchingPlans(plansWithStatus);
@@ -413,6 +457,38 @@ export function ClientForm() {
             !plan.available_states.includes(clientData.state)
           ) {
             return false;
+          }
+
+          // Check coverage type (individual vs family)
+          const coverageType = dependents.length > 0 ? "family" : "individual";
+          if (
+            coverageType === "individual" &&
+            plan.coverage_type === "family"
+          ) {
+            console.log(`Filtering out family plan: ${plan.product_name}`);
+            return false;
+          } else if (
+            coverageType === "family" &&
+            plan.coverage_type === "individual"
+          ) {
+            console.log(
+              `Filtering out individual-only plan for family: ${plan.product_name}`,
+            );
+            return false;
+          }
+
+          // Check age range eligibility
+          const clientAge = formattedData.age;
+          if (clientAge && plan.age_range && plan.age_range !== "All Ages") {
+            console.log(
+              `Checking age eligibility: Client age ${clientAge}, Plan age range ${plan.age_range}`,
+            );
+            if (!isAgeInRange(clientAge, plan.age_range)) {
+              console.log(
+                `Age range mismatch: ${clientAge} not in ${plan.age_range}`,
+              );
+              return false;
+            }
           }
 
           // Check disqualifying health conditions
@@ -443,10 +519,10 @@ export function ClientForm() {
           return true;
         });
 
-        // Add eligibility status to each plan
+        // Set all plans as eligible
         const plansWithStatus = matchingPlans.map((plan) => ({
           ...plan,
-          eligibility_status: Math.random() > 0.7 ? "potential" : "eligible",
+          eligibility_status: "eligible",
         }));
 
         setMatchingPlans(plansWithStatus);

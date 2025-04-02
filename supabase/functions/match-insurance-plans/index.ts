@@ -11,8 +11,10 @@ interface ClientData {
   state: string;
   height?: number;
   weight?: number;
+  age?: number;
   health_conditions: string[];
   medications: string[];
+  coverage_type?: "individual" | "family";
   dependents?: Dependent[];
 }
 
@@ -31,6 +33,25 @@ const corsHeaders = {
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
 };
+
+// Function to check if a client's age is within a plan's age range
+function isAgeInRange(clientAge: number, ageRange: string): boolean {
+  // Handle 'All Ages' case or empty/null age range
+  if (!ageRange || ageRange === "All Ages") return true;
+
+  // Parse age range in format '18-29', '30-44', '45-54', '55-64', '65+'
+  if (ageRange.endsWith("+")) {
+    // For ranges like '65+'
+    const minAge = parseInt(ageRange.replace("+", ""));
+    return clientAge >= minAge;
+  } else if (ageRange.includes("-")) {
+    // For ranges like '18-29'
+    const [minAge, maxAge] = ageRange.split("-").map(Number);
+    return clientAge >= minAge && clientAge <= maxAge;
+  }
+
+  return false; // If format is unrecognized
+}
 
 serve(async (req) => {
   // Handle CORS preflight request
@@ -90,6 +111,38 @@ serve(async (req) => {
         !plan.available_zip_codes.includes(clientData.zip_code)
       ) {
         return false;
+      }
+
+      // Check coverage type (individual vs family)
+      if (
+        clientData.coverage_type === "individual" &&
+        plan.coverage_type === "family"
+      ) {
+        console.log(`Filtering out family plan: ${plan.product_name}`);
+        return false;
+      } else if (
+        clientData.coverage_type === "family" &&
+        plan.coverage_type === "individual"
+      ) {
+        // For family coverage, filter out individual-only plans
+        console.log(
+          `Filtering out individual-only plan for family: ${plan.product_name}`,
+        );
+        return false;
+      }
+
+      // Check age range eligibility
+      if (clientData.age && plan.age_range && plan.age_range !== "All Ages") {
+        console.log(
+          `Checking age eligibility: Client age ${clientData.age}, Plan age range ${plan.age_range}`,
+        );
+        const isEligibleAge = isAgeInRange(clientData.age, plan.age_range);
+        if (!isEligibleAge) {
+          console.log(
+            `Age range mismatch: ${clientData.age} not in ${plan.age_range}`,
+          );
+          return false;
+        }
       }
 
       // Check disqualifying health conditions

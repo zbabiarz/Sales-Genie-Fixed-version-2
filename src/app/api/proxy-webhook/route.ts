@@ -104,6 +104,7 @@ export async function POST(request: Request) {
 
       // If we have a recordingId and analysis data, forward to our webhook
       const recordingId = formData.get("recordingId");
+      console.log("Recording ID from formData:", recordingId);
       if (
         recordingId &&
         responseData &&
@@ -120,6 +121,10 @@ export async function POST(request: Request) {
           const analysisWebhookUrl =
             "https://uzwpqhhrtfzjgytbadxl.supabase.co/functions/v1/call-analysis-webhook";
           console.log("Forwarding analysis to:", analysisWebhookUrl);
+          console.log(
+            "Analysis data being sent:",
+            JSON.stringify(analysisData),
+          );
 
           const analysisResponse = await fetch(analysisWebhookUrl, {
             method: "POST",

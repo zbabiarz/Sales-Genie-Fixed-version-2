@@ -37,16 +37,46 @@ Deno.serve(async (req) => {
     }
 
     // Parse the incoming data from n8n
-    const data = await req.json();
-    console.log("Received data from n8n:", data);
+    let data;
+    try {
+      data = await req.json();
+      console.log("Received JSON data from n8n:", data);
+    } catch (jsonError) {
+      // If JSON parsing fails, try to get the data as text and parse it
+      const textData = await req.text();
+      console.log("Received text data:", textData);
+
+      try {
+        // Try to parse the text as JSON
+        data = JSON.parse(textData);
+        console.log("Successfully parsed text as JSON:", data);
+      } catch (parseError) {
+        // If that fails too, create a simple object with the text as feedback
+        console.error("Error parsing data as JSON:", parseError);
+        data = {
+          feedback: textData,
+          recordingId: null,
+          error: "Received non-JSON data",
+        };
+      }
+    }
 
     // If we have a recordingId, update the database record
     if (data.recordingId) {
+      console.log("Updating recording with ID:", data.recordingId);
+      console.log(
+        "Transcript data:",
+        data.transcript
+          ? "Present (length: " + data.transcript.length + ")"
+          : "Missing",
+      );
+      console.log("Analysis data:", data.analysis ? "Present" : "Missing");
+
       const { error } = await supabase
         .from("call_recordings")
         .update({
-          transcript: data.transcript,
-          analysis_results: data.analysis,
+          transcript: data.transcript || "No transcript available",
+          analysis_results: data.analysis || {},
           status: "analyzed",
           updated_at: new Date().toISOString(),
         })
