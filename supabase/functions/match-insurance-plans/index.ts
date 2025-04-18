@@ -94,13 +94,31 @@ serve(async (req) => {
       throw plansError;
     }
 
+    // Log all plans for debugging
+    console.log(`Total plans found: ${allPlans.length}`);
+    // Log Reserve National plans specifically
+    const reservePlans = allPlans.filter((plan) =>
+      plan.company_name.includes("Reserve National"),
+    );
+    console.log(`Reserve National plans found: ${reservePlans.length}`);
+    if (reservePlans.length > 0) {
+      console.log(
+        "Reserve National plan details:",
+        JSON.stringify(reservePlans[0]),
+      );
+    }
+
     // Filter plans based on client data
     const matchingPlans = allPlans.filter((plan) => {
       // Check state availability
       if (
         plan.available_states &&
+        plan.available_states.length > 0 &&
         !plan.available_states.includes(clientData.state)
       ) {
+        console.log(
+          `State mismatch: Client state ${clientData.state} not in plan states ${JSON.stringify(plan.available_states)}`,
+        );
         return false;
       }
 
@@ -143,6 +161,10 @@ serve(async (req) => {
           );
           return false;
         }
+      } else {
+        console.log(
+          `Age check passed or skipped: Client age ${clientData.age}, Plan age range ${plan.age_range}`,
+        );
       }
 
       // Check disqualifying health conditions

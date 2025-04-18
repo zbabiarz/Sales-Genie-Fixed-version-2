@@ -20,6 +20,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ArrowUpDown, Search, X, ChevronDown, ChevronUp } from "lucide-react";
+import { createClient } from "../../../supabase/client";
+import { toast } from "@/components/ui/use-toast";
 
 interface InsurancePlan {
   id: string;
@@ -36,9 +38,13 @@ interface InsurancePlan {
 
 interface InsurancePlansTableProps {
   plans: InsurancePlan[];
+  clientId?: string;
 }
 
-export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
+export function InsurancePlansTable({
+  plans,
+  clientId,
+}: InsurancePlansTableProps) {
   const [sortField, setSortField] =
     useState<keyof InsurancePlan>("product_price");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
@@ -48,6 +54,8 @@ export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
   const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>(
     {},
   );
+  const [selectingPlan, setSelectingPlan] = useState<string | null>(null);
+  const supabase = createClient();
 
   // Get unique categories for filter
   const categories = Array.from(
@@ -70,6 +78,84 @@ export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
     }));
   };
 
+  const handleSelectPlan = async (planId: string) => {
+    if (!clientId) {
+      toast({
+        title: "No client selected",
+        description: "Please select a client before selecting a plan.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log("Client ID when selecting plan:", clientId);
+
+    setSelectingPlan(planId);
+
+    try {
+      console.log("Selecting plan for client:", clientId, planId);
+      // Check if the plan is already selected for this client
+      const { data: existingSelection, error: checkError } = await supabase
+        .from("client_selected_plans")
+        .select("*")
+        .eq("client_id", clientId)
+        .eq("insurance_plan_id", planId)
+        .maybeSingle();
+
+      console.log("Existing selection check:", existingSelection, checkError);
+
+      if (checkError) throw checkError;
+
+      // If the plan is already selected, show a message
+      if (existingSelection) {
+        toast({
+          title: "Plan already selected",
+          description: "This plan is already selected for this client.",
+        });
+        setSelectingPlan(null);
+        return;
+      }
+
+      // Otherwise, add the plan to the client's selected plans
+      console.log("Inserting new plan selection");
+      const { data: insertData, error: insertError } = await supabase
+        .from("client_selected_plans")
+        .insert({
+          client_id: clientId,
+          insurance_plan_id: planId,
+        })
+        .select();
+
+      console.log("Insert result:", insertData, insertError);
+
+      if (insertError) throw insertError;
+
+      toast({
+        title: "Plan selected",
+        description: "The plan has been added to the client's selected plans.",
+      });
+
+      // Dispatch a custom event to notify other components
+      if (typeof window !== "undefined") {
+        console.log("Dispatching plan-selected event:", { clientId, planId });
+        window.dispatchEvent(
+          new CustomEvent("plan-selected", {
+            detail: { clientId, planId },
+          }),
+        );
+      }
+    } catch (error) {
+      console.error("Error selecting plan:", error);
+      toast({
+        title: "Error",
+        description: "Failed to select the plan. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setSelectingPlan(null);
+    }
+  };
+
   // Function to format product benefits into a structured format
   const formatProductBenefits = (benefitsString: string) => {
     // Check if the string contains colons (indicating key-value pairs)
@@ -79,7 +165,7 @@ export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
       const benefitPairs = benefitsString.split(/,\s*(?=[^,]+:)/);
 
       return (
-        <div className="space-y-2">
+        <div className="space-y-4">
           {benefitPairs.map((pair, index) => {
             // For each pair, split by the first colon
             const colonIndex = pair.indexOf(":");
@@ -90,13 +176,23 @@ export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
               const cleanKey = key.replace(/["'{}]/g, "");
 
               return (
-                <div key={index} className="mb-1">
-                  <span className="font-medium">{cleanKey}:</span> {value}
+                <div
+                  key={index}
+                  className="mb-3 p-2 bg-gray-50 rounded-md border border-gray-100"
+                >
+                  <span className="font-medium text-teal-700 block mb-1">
+                    {cleanKey}
+                  </span>
+                  <span className="text-gray-700 pl-2">{value}</span>
                 </div>
               );
             } else {
               // If there's no colon, just return the whole string
-              return <div key={index}>{pair}</div>;
+              return (
+                <div key={index} className="p-2 bg-gray-50 rounded-md">
+                  {pair}
+                </div>
+              );
             }
           })}
         </div>
@@ -104,9 +200,14 @@ export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
     } else {
       // If there are no colons, just split by commas
       return (
-        <div className="space-y-1">
+        <div className="space-y-3">
           {benefitsString.split(", ").map((benefit, index) => (
-            <div key={index}>{benefit}</div>
+            <div
+              key={index}
+              className="p-2 bg-gray-50 rounded-md border border-gray-100"
+            >
+              {benefit}
+            </div>
           ))}
         </div>
       );
@@ -325,7 +426,10 @@ export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
                         </TableCell>
                         <TableCell>{plan.product_category}</TableCell>
                         <TableCell className="text-right">
-                          ${plan.product_price.toFixed(2)}
+                          $
+                          {plan.product_price
+                            ? plan.product_price.toFixed(2)
+                            : "0.00"}
                         </TableCell>
                         <TableCell className="text-right">
                           <Button
@@ -378,13 +482,19 @@ export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
                                       <span className="font-medium">
                                         Monthly Premium:
                                       </span>{" "}
-                                      ${plan.product_price.toFixed(2)}
+                                      $
+                                      {plan.product_price
+                                        ? plan.product_price.toFixed(2)
+                                        : "0.00"}
                                     </li>
                                     <li>
                                       <span className="font-medium">
                                         Annual Cost:
                                       </span>{" "}
-                                      ${(plan.product_price * 12).toFixed(2)}
+                                      $
+                                      {plan.product_price
+                                        ? (plan.product_price * 12).toFixed(2)
+                                        : "0.00"}
                                     </li>
                                   </ul>
                                 </div>
@@ -417,7 +527,7 @@ export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
                                 <h5 className="font-medium text-sm mb-2">
                                   Coverage Details
                                 </h5>
-                                <div className="text-sm mb-2 bg-gray-50 p-3 rounded-md border border-gray-100">
+                                <div className="text-sm mb-4 bg-white p-4 rounded-md border border-gray-200 shadow-sm">
                                   {formatProductBenefits(plan.product_benefits)}
                                 </div>
 
@@ -470,8 +580,17 @@ export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
                                 <Button
                                   size="sm"
                                   className="bg-teal-600 hover:bg-teal-700"
+                                  onClick={() => handleSelectPlan(plan.id)}
+                                  disabled={selectingPlan === plan.id}
                                 >
-                                  Select This Plan
+                                  {selectingPlan === plan.id ? (
+                                    <>
+                                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                                      Selecting...
+                                    </>
+                                  ) : (
+                                    "Select This Plan"
+                                  )}
                                 </Button>
                               </div>
                             </div>
@@ -559,7 +678,10 @@ export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
                       </TableCell>
                       <TableCell>{plan.product_category}</TableCell>
                       <TableCell className="text-right">
-                        ${plan.product_price.toFixed(2)}
+                        $
+                        {plan.product_price
+                          ? plan.product_price.toFixed(2)
+                          : "0.00"}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
@@ -612,13 +734,19 @@ export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
                                     <span className="font-medium">
                                       Monthly Premium:
                                     </span>{" "}
-                                    ${plan.product_price.toFixed(2)}
+                                    $
+                                    {plan.product_price
+                                      ? plan.product_price.toFixed(2)
+                                      : "0.00"}
                                   </li>
                                   <li>
                                     <span className="font-medium">
                                       Annual Cost:
                                     </span>{" "}
-                                    ${(plan.product_price * 12).toFixed(2)}
+                                    $
+                                    {plan.product_price
+                                      ? (plan.product_price * 12).toFixed(2)
+                                      : "0.00"}
                                   </li>
                                 </ul>
                               </div>
@@ -627,7 +755,7 @@ export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
                                 <h5 className="font-medium text-sm mb-2">
                                   Coverage Details
                                 </h5>
-                                <div className="text-sm mb-2 bg-gray-50 p-3 rounded-md border border-gray-100">
+                                <div className="text-sm mb-4 bg-white p-4 rounded-md border border-gray-200 shadow-sm">
                                   {formatProductBenefits(plan.product_benefits)}
                                 </div>
                               </div>
@@ -636,9 +764,18 @@ export function InsurancePlansTable({ plans }: InsurancePlansTableProps) {
                             <div className="mt-4 flex justify-end">
                               <Button
                                 size="sm"
-                                className="bg-gray-600 hover:bg-gray-700"
+                                className="bg-teal-600 hover:bg-teal-700"
+                                onClick={() => handleSelectPlan(plan.id)}
+                                disabled={selectingPlan === plan.id}
                               >
-                                View Plan
+                                {selectingPlan === plan.id ? (
+                                  <>
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                                    Selecting...
+                                  </>
+                                ) : (
+                                  "Select This Plan"
+                                )}
                               </Button>
                             </div>
                           </div>

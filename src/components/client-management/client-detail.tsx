@@ -19,73 +19,109 @@ import {
   User,
   Activity,
   Pill,
+  FileText,
 } from "lucide-react";
+import { Tables } from "@/types/supabase";
 
 interface ClientDetailProps {
   clientId: string;
   onBack: () => void;
 }
 
-interface Client {
-  id: string;
-  full_name: string;
-  gender: string;
-  date_of_birth: string;
-  state: string;
-  zip_code: string;
-  height: number | null;
-  weight: number | null;
-  health_conditions: string[];
-  medications: string[];
-  created_at: string;
-}
+type Client = Tables<"clients">;
+type Dependent = Tables<"dependents">;
 
-interface Dependent {
+interface SelectedPlan {
   id: string;
   client_id: string;
-  full_name: string;
-  gender: string;
-  date_of_birth: string;
-  relationship: string;
-  health_conditions: string[];
-  medications: string[];
+  insurance_plan_id: string;
+  created_at: string;
+  updated_at: string;
+  insurance_plan?: {
+    id: string;
+    company_name: string;
+    product_name: string;
+    product_category: string;
+    product_price: number;
+    product_benefits: string | null;
+  };
 }
 
 export function ClientDetail({ clientId, onBack }: ClientDetailProps) {
   const [client, setClient] = useState<Client | null>(null);
   const [dependents, setDependents] = useState<Dependent[]>([]);
+  const [selectedPlans, setSelectedPlans] = useState<SelectedPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const supabase = createClient();
 
-  useEffect(() => {
-    async function fetchClientDetails() {
-      try {
-        // Fetch client details
-        const { data: clientData, error: clientError } = await supabase
-          .from("clients")
-          .select("*")
-          .eq("id", clientId)
-          .single();
+  const fetchClientDetails = async () => {
+    try {
+      // Fetch client details
+      const { data: clientData, error: clientError } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("id", clientId)
+        .single();
 
-        if (clientError) throw clientError;
-        setClient(clientData);
+      if (clientError) throw clientError;
+      setClient(clientData);
 
-        // Fetch dependents
-        const { data: dependentsData, error: dependentsError } = await supabase
-          .from("dependents")
-          .select("*")
-          .eq("client_id", clientId);
+      // Fetch dependents
+      const { data: dependentsData, error: dependentsError } = await supabase
+        .from("dependents")
+        .select("*")
+        .eq("client_id", clientId);
 
-        if (dependentsError) throw dependentsError;
-        setDependents(dependentsData || []);
-      } catch (error) {
-        console.error("Error fetching client details:", error);
-      } finally {
-        setIsLoading(false);
-      }
+      if (dependentsError) throw dependentsError;
+      setDependents(dependentsData || []);
+
+      // Fetch selected plans with insurance plan details
+      const { data: plansData, error: plansError } = await supabase
+        .from("client_selected_plans")
+        .select(
+          `
+          *,
+          insurance_plan:insurance_plans(*)
+        `,
+        )
+        .eq("client_id", clientId);
+
+      console.log("Fetching plans for client ID:", clientId);
+      console.log("Plans query result:", plansData, plansError);
+
+      if (plansError) throw plansError;
+      console.log("Fetched selected plans:", plansData);
+      setSelectedPlans(plansData || []);
+    } catch (error) {
+      console.error("Error fetching client details:", error);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
+  useEffect(() => {
     fetchClientDetails();
+
+    // Listen for plan selection events
+    const handlePlanSelected = (event: CustomEvent) => {
+      console.log("Received plan-selected event:", event.detail);
+      if (event.detail.clientId === clientId) {
+        console.log("Client ID matches, refreshing data");
+        fetchClientDetails(); // Refresh data when a plan is selected
+      }
+    };
+
+    window.addEventListener(
+      "plan-selected",
+      handlePlanSelected as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "plan-selected",
+        handlePlanSelected as EventListener,
+      );
+    };
   }, [clientId]);
 
   const formatDate = (dateString: string) => {
@@ -111,18 +147,6 @@ export function ClientDetail({ clientId, onBack }: ClientDetailProps) {
     }
 
     return age;
-  };
-
-  const calculateBMI = (height: number | null, weight: number | null) => {
-    if (!height || !weight) return null;
-    // BMI = weight(kg) / height(m)²
-    // Convert height from inches to meters
-    const heightInMeters = height * 0.0254;
-    // Convert weight from lbs to kg
-    const weightInKg = weight * 0.453592;
-
-    const bmi = weightInKg / (heightInMeters * heightInMeters);
-    return bmi.toFixed(1);
   };
 
   if (isLoading) {
@@ -152,8 +176,6 @@ export function ClientDetail({ clientId, onBack }: ClientDetailProps) {
     );
   }
 
-  const bmi = calculateBMI(client.height, client.weight);
-
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
@@ -163,7 +185,7 @@ export function ClientDetail({ clientId, onBack }: ClientDetailProps) {
         <h2 className="text-2xl font-bold">{client.full_name}</h2>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -214,30 +236,16 @@ export function ClientDetail({ clientId, onBack }: ClientDetailProps) {
             </div>
           </CardContent>
         </Card>
-
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              BMI
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{bmi || "N/A"}</div>
-            <div className="text-xs text-muted-foreground mt-1">
-              <Activity className="inline h-3 w-3 mr-1" />
-              {client.height
-                ? `${client.height}" / ${client.weight} lbs`
-                : "Height/weight not provided"}
-            </div>
-          </CardContent>
-        </Card>
       </div>
 
       <Tabs defaultValue="health" className="w-full">
         <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="health">Health Profile</TabsTrigger>
           <TabsTrigger value="dependents">Dependents</TabsTrigger>
-          <TabsTrigger value="plans">Insurance Plans</TabsTrigger>
+          <TabsTrigger value="plans">
+            Insurance Plans{" "}
+            {selectedPlans.length > 0 && `(${selectedPlans.length})`}
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="health" className="space-y-4 mt-4">
@@ -382,21 +390,107 @@ export function ClientDetail({ clientId, onBack }: ClientDetailProps) {
         </TabsContent>
 
         <TabsContent value="plans" className="space-y-4 mt-4">
-          <Card>
-            <CardContent className="p-8 text-center">
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
-                <FileText className="h-6 w-6 text-muted-foreground" />
+          {selectedPlans.length > 0 ? (
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold">
+                  Selected Insurance Plans
+                </h3>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="text-teal-600 border-teal-600 hover:bg-teal-50"
+                  onClick={() =>
+                    window.open(
+                      `/dashboard?tab=intake&clientId=${clientId}`,
+                      "_blank",
+                    )
+                  }
+                >
+                  <FileText className="h-4 w-4 mr-2" />
+                  Add More Plans
+                </Button>
               </div>
-              <h3 className="mt-4 text-lg font-semibold">Insurance Plans</h3>
-              <p className="mt-2 text-sm text-muted-foreground">
-                Run the matching algorithm to find suitable insurance plans for
-                this client.
-              </p>
-              <Button className="mt-4 bg-teal-600 hover:bg-teal-700">
-                Find Matching Plans
-              </Button>
-            </CardContent>
-          </Card>
+
+              {selectedPlans.map((plan) => (
+                <Card key={plan.id} className="overflow-hidden">
+                  <div className="bg-teal-50 px-4 py-2 border-b">
+                    <div className="flex justify-between items-center">
+                      <div className="font-medium">
+                        {plan.insurance_plan?.company_name}
+                      </div>
+                      <Badge className="bg-teal-100 text-teal-800 hover:bg-teal-200">
+                        {plan.insurance_plan?.product_category}
+                      </Badge>
+                    </div>
+                  </div>
+                  <CardContent className="p-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <div className="text-sm text-muted-foreground">
+                          Product
+                        </div>
+                        <div className="font-medium">
+                          {plan.insurance_plan?.product_name}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">
+                          Monthly Premium
+                        </div>
+                        <div className="font-medium">
+                          ${plan.insurance_plan?.product_price.toFixed(2)}
+                        </div>
+                      </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground">
+                          Annual Cost
+                        </div>
+                        <div className="font-medium">
+                          $
+                          {(plan.insurance_plan?.product_price * 12).toFixed(2)}
+                        </div>
+                      </div>
+                    </div>
+
+                    {plan.insurance_plan?.product_benefits && (
+                      <div className="mt-4 pt-4 border-t">
+                        <div className="text-sm font-medium mb-2">Benefits</div>
+                        <div className="text-sm text-muted-foreground">
+                          {plan.insurance_plan.product_benefits}
+                        </div>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <Card>
+              <CardContent className="p-8 text-center">
+                <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-muted">
+                  <FileText className="h-6 w-6 text-muted-foreground" />
+                </div>
+                <h3 className="mt-4 text-lg font-semibold">
+                  No Insurance Plans Selected
+                </h3>
+                <p className="mt-2 text-sm text-muted-foreground">
+                  This client doesn't have any insurance plans selected yet.
+                </p>
+                <Button
+                  className="mt-4 bg-teal-600 hover:bg-teal-700"
+                  onClick={() =>
+                    window.open(
+                      `/dashboard?tab=intake&clientId=${clientId}`,
+                      "_blank",
+                    )
+                  }
+                >
+                  Find Matching Plans
+                </Button>
+              </CardContent>
+            </Card>
+          )}
         </TabsContent>
       </Tabs>
     </div>

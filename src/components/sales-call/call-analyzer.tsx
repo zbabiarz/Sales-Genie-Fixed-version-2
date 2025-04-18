@@ -46,7 +46,7 @@ export function CallAnalyzer() {
   const supabase = createClient();
   // Direct webhook URL for processing
   const webhookUrl =
-    "https://effortlessai.app.n8n.cloud/webhook-test/b786cb3c-3398-4d8f-b22e-cf2c78e95eaf";
+    "https://effortlessai.app.n8n.cloud/webhook-test/5735f10d-5868-44b8-884e-cff2b722cb8d";
   const useMockData = false; // Always use the real webhook
   // Supabase edge function URL to receive analysis results
   const analysisWebhookUrl =
@@ -77,9 +77,11 @@ export function CallAnalyzer() {
 
         // First, create a record in the database to track this analysis
         let newRecordingId = null;
+        let userId = null;
         try {
           const { data: userData } = await supabase.auth.getUser();
           if (userData.user) {
+            userId = userData.user.id;
             const { data, error } = await supabase
               .from("call_recordings")
               .insert({
@@ -118,6 +120,7 @@ export function CallAnalyzer() {
         const transcriptAndAnalysis = await processMediaFile(
           uploadedFile,
           newRecordingId,
+          userId,
         );
         setTranscript(transcriptAndAnalysis.transcript || "");
         setAnalysis(transcriptAndAnalysis.analysis);
@@ -148,6 +151,7 @@ export function CallAnalyzer() {
   const processMediaFile = async (
     mediaFile: File,
     recordingId: string | null = null,
+    userId: string | null = null,
   ): Promise<{ transcript?: string; analysis: CallAnalysis }> => {
     // Check file size and warn user but still process
     if (mediaFile.size > 50 * 1024 * 1024) {
@@ -181,10 +185,15 @@ export function CallAnalyzer() {
         "This is a sales call recording. Please transcribe accurately.",
       );
 
-      // Add the recording ID if available
+      // Add the recording ID and user ID if available
       if (recordingId) {
         formData.append("recordingId", recordingId);
         console.log("Added recordingId to formData:", recordingId);
+      }
+
+      if (userId) {
+        formData.append("userId", userId);
+        console.log("Added userId to formData:", userId);
       }
 
       console.log(
@@ -193,6 +202,7 @@ export function CallAnalyzer() {
         mediaFile.type,
         mediaFile.size,
         recordingId ? `recordingId: ${recordingId}` : "",
+        userId ? `userId: ${userId}` : "",
       );
 
       // For large files, we need to set a longer timeout
@@ -209,6 +219,7 @@ export function CallAnalyzer() {
         fileSize: mediaFile.size,
         binaryPropertyName: "file",
         recordingId: recordingId || "not set",
+        userId: userId || "not set",
       });
 
       let webhookResponse = await fetch(proxyEndpoint, {
@@ -254,6 +265,7 @@ export function CallAnalyzer() {
               },
               body: JSON.stringify({
                 recordingId: recordingId,
+                userId: userId,
                 transcript: webhookData.transcript,
                 analysis: webhookData.analysis,
               }),

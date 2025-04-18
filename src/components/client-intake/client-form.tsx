@@ -25,6 +25,7 @@ import { createClient } from "../../../supabase/client";
 import { PlusCircle, Trash2, Loader2 } from "lucide-react";
 import { DependentForm } from "./dependent-form";
 import { InsurancePlansTable } from "./insurance-plans-table";
+import { useSearchParams } from "next/navigation";
 
 interface Dependent {
   id: string;
@@ -95,6 +96,8 @@ const US_STATES = [
 ];
 
 export function ClientForm() {
+  const searchParams = useSearchParams();
+  const clientIdFromUrl = searchParams.get("clientId");
   const supabase = createClient();
   const [activeTab, setActiveTab] = useState("client-info");
   const [healthConditions, setHealthConditions] = useState<
@@ -114,7 +117,9 @@ export function ClientForm() {
     date_of_birth: "",
     _calculatedDob: "",
     state: "",
-    height: "",
+    height: "", // Keeping for backward compatibility
+    height_feet: "",
+    height_inches: "",
     weight: "",
     health_conditions: [] as string[],
     medications: [] as string[],
@@ -388,7 +393,14 @@ export function ClientForm() {
         // Use the calculated DOB if in age mode, otherwise use the entered DOB
         date_of_birth:
           clientData.date_of_birth || clientData._calculatedDob || "",
+        // Use the combined height value (already calculated in onChange handlers)
         height: clientData.height ? parseFloat(clientData.height) : undefined,
+        height_feet: clientData.height_feet
+          ? parseFloat(clientData.height_feet)
+          : undefined,
+        height_inches: clientData.height_inches
+          ? parseFloat(clientData.height_inches)
+          : undefined,
         weight: clientData.weight ? parseFloat(clientData.weight) : undefined,
         // Calculate age from DOB for filtering
         age: calculateAge(
@@ -449,13 +461,28 @@ export function ClientForm() {
 
         if (plansError) throw plansError;
 
+        // Log all plans for debugging
+        console.log(`Total plans found: ${allPlans.length}`);
+        // Log Reserve National plans specifically
+        const reservePlans = allPlans.filter((plan) =>
+          plan.company_name.includes("Reserve National"),
+        );
+        console.log(`Reserve National plans found: ${reservePlans.length}`);
+        if (reservePlans.length > 0) {
+          console.log("Reserve National plan details:", reservePlans[0]);
+        }
+
         // Filter plans based on client data
         const matchingPlans = allPlans.filter((plan) => {
           // Check state availability
           if (
             plan.available_states &&
+            plan.available_states.length > 0 &&
             !plan.available_states.includes(clientData.state)
           ) {
+            console.log(
+              `State mismatch: Client state ${clientData.state} not in plan states ${JSON.stringify(plan.available_states)}`,
+            );
             return false;
           }
 
@@ -489,6 +516,10 @@ export function ClientForm() {
               );
               return false;
             }
+          } else {
+            console.log(
+              `Age check passed or skipped: Client age ${clientAge}, Plan age range ${plan.age_range}`,
+            );
           }
 
           // Check disqualifying health conditions
@@ -547,6 +578,12 @@ export function ClientForm() {
               state: clientData.state,
               zip_code: "00000", // Default value since we removed the field
               height: clientData.height ? parseFloat(clientData.height) : null,
+              height_feet: clientData.height_feet
+                ? parseFloat(clientData.height_feet)
+                : null,
+              height_inches: clientData.height_inches
+                ? parseFloat(clientData.height_inches)
+                : null,
               weight: clientData.weight ? parseFloat(clientData.weight) : null,
               health_conditions: [
                 ...clientData.health_conditions,
@@ -620,6 +657,8 @@ export function ClientForm() {
       _calculatedDob: "",
       state: "",
       height: "",
+      height_feet: "",
+      height_inches: "",
       weight: "",
       health_conditions: [],
       medications: [],
@@ -762,9 +801,37 @@ export function ClientForm() {
                       <SelectTrigger>
                         <SelectValue placeholder="Select state" />
                       </SelectTrigger>
-                      <SelectContent>
+                      <SelectContent className="max-h-[300px] overflow-y-auto">
+                        <div className="p-2 sticky top-0 bg-white border-b">
+                          <Input
+                            placeholder="Search states..."
+                            className="mb-1"
+                            onChange={(e) => {
+                              const searchBox = e.target;
+                              const searchTerm = searchBox.value.toLowerCase();
+                              const stateItems =
+                                searchBox
+                                  .closest(".SelectContent")
+                                  ?.querySelectorAll(".state-item") || [];
+
+                              stateItems.forEach((item) => {
+                                const stateText =
+                                  item.textContent?.toLowerCase() || "";
+                                if (stateText.includes(searchTerm)) {
+                                  item.classList.remove("hidden");
+                                } else {
+                                  item.classList.add("hidden");
+                                }
+                              });
+                            }}
+                          />
+                        </div>
                         {US_STATES.map((state) => (
-                          <SelectItem key={state.value} value={state.value}>
+                          <SelectItem
+                            key={state.value}
+                            value={state.value}
+                            className="state-item"
+                          >
                             {state.label}
                           </SelectItem>
                         ))}
@@ -773,17 +840,65 @@ export function ClientForm() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label htmlFor="height">
-                      Height (inches) <span className="text-red-500">*</span>
+                    <Label htmlFor="height_feet">
+                      Height <span className="text-red-500">*</span>
                     </Label>
-                    <Input
-                      id="height"
-                      name="height"
-                      type="number"
-                      required
-                      value={clientData.height}
-                      onChange={handleClientChange}
-                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <div className="flex items-center">
+                          <Input
+                            id="height_feet"
+                            name="height_feet"
+                            type="number"
+                            required
+                            placeholder="Feet"
+                            min="1"
+                            max="8"
+                            value={clientData.height_feet}
+                            onChange={(e) => {
+                              handleClientChange(e);
+                              // Update the legacy height field in inches for backward compatibility
+                              const feet = parseInt(e.target.value) || 0;
+                              const inches =
+                                parseInt(clientData.height_inches) || 0;
+                              const totalInches = feet * 12 + inches;
+                              setClientData((prev) => ({
+                                ...prev,
+                                height: totalInches.toString(),
+                              }));
+                            }}
+                          />
+                          <span className="ml-2">ft</span>
+                        </div>
+                      </div>
+                      <div>
+                        <div className="flex items-center">
+                          <Input
+                            id="height_inches"
+                            name="height_inches"
+                            type="number"
+                            required
+                            placeholder="Inches"
+                            min="0"
+                            max="11"
+                            value={clientData.height_inches}
+                            onChange={(e) => {
+                              handleClientChange(e);
+                              // Update the legacy height field in inches for backward compatibility
+                              const feet =
+                                parseInt(clientData.height_feet) || 0;
+                              const inches = parseInt(e.target.value) || 0;
+                              const totalInches = feet * 12 + inches;
+                              setClientData((prev) => ({
+                                ...prev,
+                                height: totalInches.toString(),
+                              }));
+                            }}
+                          />
+                          <span className="ml-2">in</span>
+                        </div>
+                      </div>
+                    </div>
                   </div>
 
                   <div className="space-y-2">
@@ -1009,7 +1124,10 @@ export function ClientForm() {
               </CardHeader>
 
               <CardContent>
-                <InsurancePlansTable plans={matchingPlans} />
+                <InsurancePlansTable
+                  plans={matchingPlans}
+                  clientId={clientIdFromUrl}
+                />
               </CardContent>
 
               <CardFooter className="flex justify-between">

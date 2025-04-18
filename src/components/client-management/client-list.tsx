@@ -20,8 +20,17 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Search, Eye, FileText, Plus, Trash2 } from "lucide-react";
+import { Search, Eye, FileText, Plus, Trash2, Check } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { toast } from "@/components/ui/use-toast";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface Client {
   id: string;
@@ -35,9 +44,25 @@ interface Client {
   created_at: string;
 }
 
+interface InsurancePlan {
+  id: string;
+  company_name: string;
+  product_name: string;
+  product_category: string;
+  product_price: number | null;
+}
+
 interface ClientListProps {
   onSelectClient: (clientId: string) => void;
   onDeleteClient?: (clientId: string) => void;
+}
+
+interface PlanSelectionState {
+  isSelecting: boolean;
+  clientId: string | null;
+  availablePlans: InsurancePlan[];
+  selectedPlanIds: string[];
+  isLoading: boolean;
 }
 
 export function ClientList({
@@ -48,30 +73,65 @@ export function ClientList({
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
+  const [openPlanDropdown, setOpenPlanDropdown] = useState<string | null>(null);
+  const [clientPlans, setClientPlans] = useState<{
+    [clientId: string]: InsurancePlan[];
+  }>({});
+  const [loadingPlans, setLoadingPlans] = useState<{
+    [clientId: string]: boolean;
+  }>({});
+  const [planSelection, setPlanSelection] = useState<PlanSelectionState>({
+    isSelecting: false,
+    clientId: null,
+    availablePlans: [],
+    selectedPlanIds: [],
+    isLoading: false,
+  });
   const supabase = createClient();
 
-  useEffect(() => {
-    async function fetchClients() {
-      try {
-        const { data: user } = await supabase.auth.getUser();
-        if (!user.user) return;
+  const fetchClients = async () => {
+    try {
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) return;
 
-        const { data, error } = await supabase
-          .from("clients")
-          .select("*")
-          .eq("user_id", user.user.id)
-          .order("created_at", { ascending: false });
+      const { data, error } = await supabase
+        .from("clients")
+        .select("*")
+        .eq("user_id", user.user.id)
+        .order("created_at", { ascending: false });
 
-        if (error) throw error;
-        setClients(data || []);
-      } catch (error) {
-        console.error("Error fetching clients:", error);
-      } finally {
-        setIsLoading(false);
-      }
+      if (error) throw error;
+      setClients(data || []);
+    } catch (error) {
+      console.error("Error fetching clients:", error);
+    } finally {
+      setIsLoading(false);
     }
+  };
 
+  useEffect(() => {
     fetchClients();
+
+    // Listen for plan selection events
+    const handlePlanSelected = (event: CustomEvent) => {
+      console.log("Client list received plan-selected event:", event.detail);
+      if (event.detail.clientId) {
+        // Refresh the client plans for this client
+        fetchClientPlans(event.detail.clientId);
+      }
+    };
+
+    window.addEventListener(
+      "plan-selected",
+      handlePlanSelected as EventListener,
+    );
+
+    return () => {
+      window.removeEventListener(
+        "plan-selected",
+        handlePlanSelected as EventListener,
+      );
+    };
   }, []);
 
   const filteredClients = clients.filter((client) =>
@@ -139,6 +199,157 @@ export function ClientList({
     }
 
     return age;
+  };
+
+  const fetchClientPlans = async (clientId: string) => {
+    console.log("Fetching plans for client:", clientId);
+    setLoadingPlans((prev) => ({ ...prev, [clientId]: true }));
+    try {
+      const { data, error } = await supabase
+        .from("client_selected_plans")
+        .select(
+          `
+          insurance_plan_id,
+          insurance_plans(id, company_name, product_name, product_category, product_price)
+        `,
+        )
+        .eq("client_id", clientId);
+
+      console.log("Client plans query result:", data, error);
+
+      if (error) throw error;
+
+      // Extract the insurance plans data correctly
+      const plans = [];
+      if (data && data.length > 0) {
+        for (const item of data) {
+          if (item.insurance_plans) {
+            plans.push(item.insurance_plans);
+          }
+        }
+      }
+      console.log("Extracted plans:", plans);
+      setClientPlans((prev) => ({ ...prev, [clientId]: plans }));
+    } catch (error) {
+      console.error("Error fetching client plans:", error);
+      setClientPlans((prev) => ({ ...prev, [clientId]: [] }));
+    } finally {
+      setLoadingPlans((prev) => ({ ...prev, [clientId]: false }));
+    }
+  };
+
+  const openPlanSelectionModal = async (clientId: string) => {
+    setPlanSelection({
+      isSelecting: true,
+      clientId,
+      availablePlans: [],
+      selectedPlanIds: [],
+      isLoading: true,
+    });
+
+    try {
+      // Fetch all available insurance plans
+      const { data: plansData, error: plansError } = await supabase
+        .from("insurance_plans")
+        .select("*")
+        .order("company_name", { ascending: true });
+
+      if (plansError) throw plansError;
+
+      // Fetch currently selected plans for this client
+      const { data: selectedData, error: selectedError } = await supabase
+        .from("client_selected_plans")
+        .select("insurance_plan_id")
+        .eq("client_id", clientId);
+
+      if (selectedError) throw selectedError;
+
+      const selectedIds = selectedData.map((item) => item.insurance_plan_id);
+
+      setPlanSelection((prev) => ({
+        ...prev,
+        availablePlans: plansData || [],
+        selectedPlanIds: selectedIds,
+        isLoading: false,
+      }));
+    } catch (error) {
+      console.error("Error loading plans for selection:", error);
+      setPlanSelection((prev) => ({ ...prev, isLoading: false }));
+      toast({
+        title: "Error",
+        description: "Failed to load insurance plans. Please try again.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const togglePlanSelection = (planId: string) => {
+    setPlanSelection((prev) => {
+      const isSelected = prev.selectedPlanIds.includes(planId);
+      return {
+        ...prev,
+        selectedPlanIds: isSelected
+          ? prev.selectedPlanIds.filter((id) => id !== planId)
+          : [...prev.selectedPlanIds, planId],
+      };
+    });
+  };
+
+  const savePlanSelections = async () => {
+    if (!planSelection.clientId) return;
+
+    setPlanSelection((prev) => ({ ...prev, isLoading: true }));
+
+    try {
+      // First, delete all existing selections for this client
+      const { error: deleteError } = await supabase
+        .from("client_selected_plans")
+        .delete()
+        .eq("client_id", planSelection.clientId);
+
+      if (deleteError) throw deleteError;
+
+      // Then insert the new selections
+      if (planSelection.selectedPlanIds.length > 0) {
+        const insertData = planSelection.selectedPlanIds.map((planId) => ({
+          client_id: planSelection.clientId,
+          insurance_plan_id: planId,
+        }));
+
+        const { error: insertError } = await supabase
+          .from("client_selected_plans")
+          .insert(insertData);
+
+        if (insertError) throw insertError;
+      }
+
+      // Refresh the client plans display
+      if (planSelection.clientId) {
+        fetchClientPlans(planSelection.clientId);
+      }
+
+      // Close the selection modal
+      setPlanSelection({
+        isSelecting: false,
+        clientId: null,
+        availablePlans: [],
+        selectedPlanIds: [],
+        isLoading: false,
+      });
+
+      toast({
+        title: "Success",
+        description: "Insurance plans updated successfully.",
+      });
+    } catch (error) {
+      console.error("Error saving plan selections:", error);
+      setPlanSelection((prev) => ({ ...prev, isLoading: false }));
+      toast({
+        title: "Error",
+        description: "Failed to update insurance plans. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   return (
@@ -220,13 +431,63 @@ export function ClientList({
                   <TableCell>{formatDate(client.created_at)}</TableCell>
                   <TableCell className="text-right">
                     <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => onSelectClient(client.id)}
+                      <DropdownMenu
+                        open={openPlanDropdown === client.id}
+                        onOpenChange={(open) => {
+                          if (open) {
+                            setOpenPlanDropdown(client.id);
+                            fetchClientPlans(client.id);
+                          } else {
+                            setOpenPlanDropdown(null);
+                          }
+                        }}
                       >
-                        <Eye className="h-4 w-4" />
-                      </Button>
+                        <DropdownMenuTrigger asChild>
+                          <Button variant="ghost" size="icon">
+                            <Eye className="h-4 w-4" />
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end" className="w-56">
+                          <DropdownMenuLabel>Selected Plans</DropdownMenuLabel>
+                          <DropdownMenuSeparator />
+                          {loadingPlans[client.id] ? (
+                            <div className="flex items-center justify-center py-2">
+                              <div className="h-4 w-4 animate-spin rounded-full border-2 border-teal-500 border-t-transparent" />
+                            </div>
+                          ) : clientPlans[client.id]?.length ? (
+                            clientPlans[client.id].map((plan) => (
+                              <DropdownMenuItem
+                                key={plan.id}
+                                className="cursor-default"
+                              >
+                                <div className="flex flex-col w-full">
+                                  <span className="font-medium">
+                                    {plan.company_name}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground">
+                                    {plan.product_name}
+                                  </span>
+                                  <span className="text-xs text-muted-foreground mt-1">
+                                    ${plan.product_price?.toFixed(2) || "0.00"}{" "}
+                                    - {plan.product_category}
+                                  </span>
+                                </div>
+                              </DropdownMenuItem>
+                            ))
+                          ) : (
+                            <DropdownMenuItem className="cursor-default text-muted-foreground">
+                              No plans selected for this client
+                            </DropdownMenuItem>
+                          )}
+                          <DropdownMenuSeparator />
+                          <DropdownMenuItem
+                            onClick={() => onSelectClient(client.id)}
+                            className="cursor-pointer"
+                          >
+                            View client details
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                       <Button variant="ghost" size="icon">
                         <FileText className="h-4 w-4" />
                       </Button>

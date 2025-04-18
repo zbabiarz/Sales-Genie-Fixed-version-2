@@ -1,0 +1,2 @@
+ALTER TABLE insurance_plans ADD COLUMN IF NOT EXISTS height VARCHAR(50);
+ALTER TABLE insurance_plans ADD COLUMN IF NOT EXISTS weight VARCHAR(50);

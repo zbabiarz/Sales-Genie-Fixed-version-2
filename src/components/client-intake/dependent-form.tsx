@@ -26,7 +26,9 @@ interface Dependent {
   full_name: string;
   gender: string;
   date_of_birth: string;
-  height?: string;
+  height?: string; // Keeping for backward compatibility
+  height_feet?: string;
+  height_inches?: string;
   weight?: string;
   health_conditions: string[];
   medications: string[];
@@ -221,17 +223,63 @@ export function DependentForm({
 
             <div className="grid grid-cols-2 gap-2">
               <div className="space-y-2">
-                <Label htmlFor={`height-${dependent.id}`}>
-                  Height (inches) <span className="text-red-500">*</span>
+                <Label htmlFor={`height_feet-${dependent.id}`}>
+                  Height <span className="text-red-500">*</span>
                 </Label>
-                <Input
-                  id={`height-${dependent.id}`}
-                  name="height"
-                  type="number"
-                  value={dependent.height}
-                  onChange={handleChange}
-                  required
-                />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <div className="flex items-center">
+                      <Input
+                        id={`height_feet-${dependent.id}`}
+                        name="height_feet"
+                        type="number"
+                        placeholder="Feet"
+                        min="1"
+                        max="8"
+                        value={dependent.height_feet}
+                        onChange={(e) => {
+                          handleChange(e);
+                          // Update the legacy height field in inches for backward compatibility
+                          const feet = parseInt(e.target.value) || 0;
+                          const inches =
+                            parseInt(dependent.height_inches || "0") || 0;
+                          const totalInches = feet * 12 + inches;
+                          updateDependent(dependent.id, {
+                            height: totalInches.toString(),
+                          });
+                        }}
+                        required
+                      />
+                      <span className="ml-2">ft</span>
+                    </div>
+                  </div>
+                  <div>
+                    <div className="flex items-center">
+                      <Input
+                        id={`height_inches-${dependent.id}`}
+                        name="height_inches"
+                        type="number"
+                        placeholder="Inches"
+                        min="0"
+                        max="11"
+                        value={dependent.height_inches}
+                        onChange={(e) => {
+                          handleChange(e);
+                          // Update the legacy height field in inches for backward compatibility
+                          const feet =
+                            parseInt(dependent.height_feet || "0") || 0;
+                          const inches = parseInt(e.target.value) || 0;
+                          const totalInches = feet * 12 + inches;
+                          updateDependent(dependent.id, {
+                            height: totalInches.toString(),
+                          });
+                        }}
+                        required
+                      />
+                      <span className="ml-2">in</span>
+                    </div>
+                  </div>
+                </div>
               </div>
 
               <div className="space-y-2">
