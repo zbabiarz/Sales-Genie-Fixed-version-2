@@ -11,6 +11,9 @@ const nextConfig = {
     },
     responseLimit: "100mb",
   },
+  images: {
+    domains: ["storage.googleapis.com"],
+  },
 };
 
 if (process.env.NEXT_PUBLIC_TEMPO) {

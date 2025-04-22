@@ -11,24 +11,35 @@ export default function Hero() {
         <div className="container mx-auto px-4">
           <div className="text-center max-w-4xl mx-auto">
             <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 mb-8 tracking-tight">
-              Insurance{" "}
+              <span className="text-gray-900">Close</span>{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-teal-400">
-                Sales Genie
+                More Deals
               </span>
+              . Cut Your Workload in{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-teal-400">
+                Half
+              </span>
+              . Instantly{" "}
+              <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-teal-400">
+                Match Clients
+              </span>{" "}
+              with the Right Insurance Plan Without the Headaches.
             </h1>
 
-            <p className="text-xl text-gray-600 mb-12 max-w-2xl mx-auto leading-relaxed">
-              An intelligent platform that empowers insurance brokers with
-              AI-driven tools to streamline underwriting, improve sales
-              conversations, and access instant product information.
+            <p className="text-xl text-gray-600 mb-6 max-w-2xl mx-auto leading-relaxed flex">
+              Finally… an AI-powered sales system designed to help brokers close
+              faster, convert more, and eliminate guesswork from underwriting
+              and sales calls.
             </p>
+
+            <p className="text-sm text-gray-500 mb-12 max-w-2xl mx-auto"> </p>
 
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link
                 href="/dashboard"
                 className="inline-flex items-center px-8 py-4 text-white bg-teal-600 rounded-lg hover:bg-teal-700 transition-colors text-lg font-medium"
               >
-                Get Started Free
+                Get Started Today
                 <ArrowUpRight className="ml-2 w-5 h-5" />
               </Link>
 
@@ -38,21 +49,6 @@ export default function Hero() {
               >
                 View Pricing
               </Link>
-            </div>
-
-            <div className="mt-16 flex flex-col sm:flex-row items-center justify-center gap-8 text-sm text-gray-600">
-              <div className="flex items-center gap-2">
-                <Check className="w-5 h-5 text-teal-500" />
-                <span>AI-powered client matching</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="w-5 h-5 text-teal-500" />
-                <span>Sales call analysis</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <Check className="w-5 h-5 text-teal-500" />
-                <span>Intelligent chatbot assistant</span>
-              </div>
             </div>
           </div>
         </div>

@@ -2,6 +2,7 @@ import Hero from "@/components/hero";
 import Navbar from "@/components/navbar";
 import PricingCard from "@/components/pricing-card";
 import Footer from "@/components/footer";
+import FeaturesSection from "@/components/landing/FeaturesSection";
 import { createClient } from "../../supabase/server";
 import {
   ArrowUpRight,
@@ -26,72 +27,8 @@ export default async function Home() {
     <div className="min-h-screen bg-gradient-to-b from-white to-teal-50">
       <Navbar />
       <Hero />
-
       {/* Features Section */}
-      <section className="py-24 bg-white">
-        <div className="container mx-auto px-4">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl font-bold mb-4">
-              Intelligent Tools for Insurance Brokers
-            </h2>
-            <p className="text-gray-600 max-w-2xl mx-auto">
-              Our AI-powered platform helps independent insurance brokers
-              streamline client matching, improve sales conversations, and
-              access instant product information.
-            </p>
-          </div>
-
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {[
-              {
-                icon: <ClipboardCheck className="w-6 h-6" />,
-                title: "Client Intake & Matching",
-                description:
-                  "Multi-step form with health condition filtering that instantly displays qualifying insurance plans in a sortable table format.",
-              },
-              {
-                icon: <BrainCircuit className="w-6 h-6" />,
-                title: "AI Chatbot Assistant",
-                description:
-                  "Get real-time product information and client-specific recommendations through our intuitive chat interface.",
-              },
-              {
-                icon: <MessageSquareText className="w-6 h-6" />,
-                title: "Sales Call Analyzer",
-                description:
-                  "Upload call recordings to receive AI-powered feedback highlighting strengths and improvement areas.",
-              },
-              {
-                icon: <LineChart className="w-6 h-6" />,
-                title: "Performance Dashboard",
-                description:
-                  "Track your sales metrics, client conversions, and business growth with our intuitive analytics.",
-              },
-              {
-                icon: <CheckCircle2 className="w-6 h-6" />,
-                title: "Plan Comparison",
-                description:
-                  "Side-by-side comparison of insurance plans to help clients make informed decisions quickly.",
-              },
-              {
-                icon: <ArrowUpRight className="w-6 h-6" />,
-                title: "Mobile Friendly",
-                description:
-                  "Access all features on any device with our responsive design and persistent navigation.",
-              },
-            ].map((feature, index) => (
-              <div
-                key={index}
-                className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-teal-100"
-              >
-                <div className="text-teal-600 mb-4">{feature.icon}</div>
-                <h3 className="text-xl font-semibold mb-2">{feature.title}</h3>
-                <p className="text-gray-600">{feature.description}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
+      <FeaturesSection />
 
       {/* Stats Section */}
       <section className="py-20 bg-teal-600 text-white">
@@ -118,11 +55,13 @@ export default async function Home() {
         <div className="container mx-auto px-4">
           <div className="text-center mb-16">
             <h2 className="text-3xl font-bold mb-4">
-              How Insurance Sales Genie Works
+              How Insurance Sales Genie Helps You Win More Deals (Without the
+              Headaches)
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Our platform simplifies the insurance sales process from client
-              intake to closing the deal.
+              Forget the guesswork, the back-and-forth emails, and the
+              underwriting rabbit holes. Here's how our system makes your sales
+              process faster, easier, and way more profitable:
             </p>
           </div>
 
@@ -131,10 +70,13 @@ export default async function Home() {
               <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-teal-600 text-xl font-bold">1</span>
               </div>
-              <h3 className="text-xl font-semibold mb-3">Client Intake</h3>
+              <h3 className="text-xl font-semibold mb-3">
+                Effortless Client Intake
+              </h3>
               <p className="text-gray-600">
-                Enter client information and health conditions through our
-                intuitive multi-step form.
+                Easily gather client details and health info through our smart,
+                step-by-step intake form so you know exactly what products your
+                client qualifies for, right from the start.
               </p>
             </div>
 
@@ -142,10 +84,13 @@ export default async function Home() {
               <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-teal-600 text-xl font-bold">2</span>
               </div>
-              <h3 className="text-xl font-semibold mb-3">AI Matching</h3>
+              <h3 className="text-xl font-semibold mb-3">
+                Instant AI-Powered Plan Matching
+              </h3>
               <p className="text-gray-600">
-                Our system instantly identifies qualifying insurance plans based
-                on client needs.
+                Stop sifting through endless plan options. Our AI instantly
+                matches your clients with the best-fit products based on their
+                unique needs with clear, easy-to-understand explanations.
               </p>
             </div>
 
@@ -153,10 +98,13 @@ export default async function Home() {
               <div className="w-16 h-16 bg-teal-100 rounded-full flex items-center justify-center mx-auto mb-6">
                 <span className="text-teal-600 text-xl font-bold">3</span>
               </div>
-              <h3 className="text-xl font-semibold mb-3">Close Deals</h3>
+              <h3 className="text-xl font-semibold mb-3">
+                Close More Deals, Confidently
+              </h3>
               <p className="text-gray-600">
-                Use AI-powered insights to guide client conversations and close
-                more sales.
+                Use real-time insights, sales call feedback, and product
+                recommendations to guide conversations, answer questions on the
+                spot, and seal the deal faster than ever.
               </p>
             </div>
           </div>
@@ -171,8 +119,9 @@ export default async function Home() {
               Simple, Transparent Pricing
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto">
-              Choose the perfect plan for your insurance brokerage. No hidden
-              fees.
+              Get all these powerful AI tools for less than the cost of one
+              missed deal per month. One saved sale covers your subscription 10X
+              over.
             </p>
           </div>
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
@@ -266,7 +215,6 @@ export default async function Home() {
           </a>
         </div>
       </section>
-
       <Footer />
     </div>
   );
