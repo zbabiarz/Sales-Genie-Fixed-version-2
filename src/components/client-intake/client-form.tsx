@@ -110,14 +110,13 @@ export function ClientForm() {
   const [matchingPlans, setMatchingPlans] = useState<any[]>([]);
   const [useAgeInput, setUseAgeInput] = useState(false);
 
-  // Client form state
   const [clientData, setClientData] = useState({
     full_name: "",
     gender: "",
     date_of_birth: "",
     _calculatedDob: "",
     state: "",
-    height: "", // Keeping for backward compatibility
+    height: "",
     height_feet: "",
     height_inches: "",
     weight: "",
@@ -127,11 +126,9 @@ export function ClientForm() {
     custom_medications: [] as string[],
   });
 
-  // Dependents state
   const [dependents, setDependents] = useState<Dependent[]>([]);
   const [showResults, setShowResults] = useState(false);
 
-  // Fetch health conditions and medications on component mount
   useEffect(() => {
     async function fetchReferenceData() {
       try {
@@ -243,7 +240,7 @@ export function ClientForm() {
   const addDependent = () => {
     const newDependent: Dependent = {
       id: Date.now().toString(),
-      relationship: "dependent", // Default relationship
+      relationship: "dependent",
       full_name: "",
       gender: "",
       date_of_birth: "",
@@ -270,7 +267,6 @@ export function ClientForm() {
     setDependents((prev) => prev.filter((dep) => dep.id !== id));
   };
 
-  // Function to calculate age from date of birth
   const calculateAge = (birthDateString: string) => {
     if (!birthDateString) return 0;
 
@@ -289,85 +285,57 @@ export function ClientForm() {
     return age;
   };
 
-  // Function to check if a client's age is within a plan's age range
   const isAgeInRange = (clientAge: number, ageRange: string) => {
-    // Handle 'All Ages' case or empty/null age range
     if (!ageRange || ageRange === "All Ages") return true;
 
-    // Parse age range in format '18-29', '30-44', '45-54', '55-64', '65+'
     if (ageRange.endsWith("+")) {
-      // For ranges like '65+'
       const minAge = parseInt(ageRange.replace("+", ""));
       return clientAge >= minAge;
     } else if (ageRange.includes("-")) {
-      // For ranges like '18-29'
       const [minAge, maxAge] = ageRange.split("-").map(Number);
       return clientAge >= minAge && clientAge <= maxAge;
     }
 
-    return false; // If format is unrecognized
+    return false;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setMatchingPlans([]);
 
-    // Immediately show placeholder plans while loading
-    const placeholderPlans = [
-      {
-        id: "placeholder-1",
-        company_name: "HealthGuard",
-        product_name: "Essential Care",
-        product_category: "Health",
-        product_price: 199.99,
-        product_benefits: "Basic coverage with preventive care",
-        eligibility_status: "eligible",
-      },
-      {
-        id: "placeholder-2",
-        company_name: "MediShield",
-        product_name: "Premium Health",
-        product_category: "Health",
-        product_price: 299.99,
-        product_benefits: "Comprehensive coverage with dental and vision",
-        eligibility_status: "eligible",
-      },
-      {
-        id: "placeholder-3",
-        company_name: "LifeSecure",
-        product_name: "Family Protection",
-        product_category: "Life",
-        product_price: 89.99,
-        product_benefits: "Term life insurance with critical illness rider",
-        eligibility_status: "eligible",
-      },
-      {
-        id: "placeholder-4",
-        company_name: "WellCare Plus",
-        product_name: "Advanced Health",
-        product_category: "Health",
-        product_price: 349.99,
-        product_benefits:
-          "Premium coverage with specialist care and low deductibles",
-        eligibility_status: "potential",
-      },
-      {
-        id: "placeholder-5",
-        company_name: "GuardianLife",
-        product_name: "Whole Life Plus",
-        product_category: "Life",
-        product_price: 129.99,
-        product_benefits: "Whole life coverage with investment component",
-        eligibility_status: "potential",
-      },
-    ];
+    try {
+      const { data: allPlans, error: plansError } = await supabase
+        .from("insurance_plans")
+        .select("*");
 
-    // Show placeholders immediately
-    setMatchingPlans(placeholderPlans);
+      if (plansError) throw plansError;
+
+      console.log(
+        `Fetched ${allPlans?.length || 0} insurance plans from database`,
+      );
+
+      if (allPlans && allPlans.length > 0) {
+        const filteredPlans = allPlans.filter((plan) => {
+          return true;
+        });
+
+        const plansWithStatus = filteredPlans.map((plan) => ({
+          ...plan,
+          eligibility_status: "eligible",
+        }));
+
+        setMatchingPlans(plansWithStatus);
+      } else {
+        console.log("No insurance plans found in database");
+      }
+    } catch (error) {
+      console.error("Error fetching insurance plans:", error);
+    }
+
     setShowResults(true);
     setActiveTab("results");
 
-    // Check if a client with the same name already exists to prevent duplicates
     let existingClient = false;
     try {
       const { data: user } = await supabase.auth.getUser();
@@ -387,13 +355,11 @@ export function ClientForm() {
     }
 
     try {
-      // Format data for API
       const formattedData = {
         ...clientData,
-        // Use the calculated DOB if in age mode, otherwise use the entered DOB
         date_of_birth:
           clientData.date_of_birth || clientData._calculatedDob || "",
-        // Use the combined height value (already calculated in onChange handlers)
+        gender: clientData.gender,
         height: clientData.height ? parseFloat(clientData.height) : undefined,
         height_feet: clientData.height_feet
           ? parseFloat(clientData.height_feet)
@@ -402,11 +368,9 @@ export function ClientForm() {
           ? parseFloat(clientData.height_inches)
           : undefined,
         weight: clientData.weight ? parseFloat(clientData.weight) : undefined,
-        // Calculate age from DOB for filtering
         age: calculateAge(
           clientData.date_of_birth || clientData._calculatedDob || "",
         ),
-        // Combine standard and custom health conditions/medications
         health_conditions: [
           ...clientData.health_conditions,
           ...clientData.custom_health_conditions,
@@ -415,15 +379,19 @@ export function ClientForm() {
           ...clientData.medications,
           ...clientData.custom_medications,
         ],
-        // Determine coverage type based on dependents
         coverage_type: dependents.length > 0 ? "family" : "individual",
         dependents: dependents.map((dep) => ({
           relationship: dep.relationship,
           full_name: dep.full_name,
           gender: dep.gender,
-          // Use the calculated DOB if in age mode, otherwise use the entered DOB
           date_of_birth: dep.date_of_birth || dep._calculatedDob || "",
           height: dep.height ? parseFloat(dep.height) : undefined,
+          height_feet: dep.height_feet
+            ? parseFloat(dep.height_feet)
+            : undefined,
+          height_inches: dep.height_inches
+            ? parseFloat(dep.height_inches)
+            : undefined,
           weight: dep.weight ? parseFloat(dep.weight) : undefined,
           health_conditions: [
             ...dep.health_conditions,
@@ -434,7 +402,6 @@ export function ClientForm() {
       };
 
       try {
-        // First try to use the edge function
         const { data, error } = await supabase.functions.invoke(
           "match-insurance-plans",
           {
@@ -444,7 +411,6 @@ export function ClientForm() {
 
         if (error) throw error;
 
-        // Set all plans as eligible
         const plansWithStatus = (data.matchingPlans || []).map((plan) => ({
           ...plan,
           eligibility_status: "eligible",
@@ -454,16 +420,13 @@ export function ClientForm() {
       } catch (edgeFunctionError) {
         console.error("Edge function error:", edgeFunctionError);
 
-        // Fallback: Query the database directly
         const { data: allPlans, error: plansError } = await supabase
           .from("insurance_plans")
           .select("*");
 
         if (plansError) throw plansError;
 
-        // Log all plans for debugging
         console.log(`Total plans found: ${allPlans.length}`);
-        // Log Reserve National plans specifically
         const reservePlans = allPlans.filter((plan) =>
           plan.company_name.includes("Reserve National"),
         );
@@ -472,9 +435,7 @@ export function ClientForm() {
           console.log("Reserve National plan details:", reservePlans[0]);
         }
 
-        // Filter plans based on client data
         const matchingPlans = allPlans.filter((plan) => {
-          // Check state availability
           if (
             plan.available_states &&
             plan.available_states.length > 0 &&
@@ -486,7 +447,6 @@ export function ClientForm() {
             return false;
           }
 
-          // Check coverage type (individual vs family)
           const coverageType = dependents.length > 0 ? "family" : "individual";
           if (
             coverageType === "individual" &&
@@ -504,37 +464,75 @@ export function ClientForm() {
             return false;
           }
 
-          // Check age range eligibility
-          const clientAge = formattedData.age;
-          if (clientAge && plan.age_range && plan.age_range !== "All Ages") {
+          if (
+            clientData.age &&
+            plan.age_range &&
+            plan.age_range !== "All Ages"
+          ) {
             console.log(
-              `Checking age eligibility: Client age ${clientAge}, Plan age range ${plan.age_range}`,
+              `Checking age eligibility: Client age ${clientData.age}, Plan age range ${plan.age_range}`,
             );
-            if (!isAgeInRange(clientAge, plan.age_range)) {
+            if (!isAgeInRange(clientData.age, plan.age_range)) {
               console.log(
-                `Age range mismatch: ${clientAge} not in ${plan.age_range}`,
+                `Age range mismatch: ${clientData.age} not in ${plan.age_range}`,
               );
               return false;
             }
           } else {
             console.log(
-              `Age check passed or skipped: Client age ${clientAge}, Plan age range ${plan.age_range}`,
+              `Age check passed or skipped: Client age ${clientData.age}, Plan age range ${plan.age_range}`,
             );
           }
 
-          // Check disqualifying health conditions
           if (
             plan.disqualifying_health_conditions &&
             plan.disqualifying_health_conditions.length > 0
           ) {
             for (const condition of formattedData.health_conditions) {
-              if (plan.disqualifying_health_conditions.includes(condition)) {
+              // Check for partial matches in disqualifying conditions
+              const partialMatch = plan.disqualifying_health_conditions.some(
+                (disqualifyingCondition) => {
+                  // Case insensitive check
+                  const clientConditionLower = condition.toLowerCase();
+                  const disqualifyingConditionLower =
+                    disqualifyingCondition.toLowerCase();
+
+                  // Check if client condition is part of a disqualifying condition
+                  // or if disqualifying condition contains the client condition
+                  const isPartialMatch =
+                    disqualifyingConditionLower.includes(
+                      clientConditionLower,
+                    ) ||
+                    clientConditionLower.includes(
+                      disqualifyingConditionLower,
+                    ) ||
+                    // Split by common separators and check each part
+                    disqualifyingConditionLower
+                      .split(/[\/,\-\s]+/)
+                      .some(
+                        (part) =>
+                          part === clientConditionLower ||
+                          (part.length > 3 &&
+                            clientConditionLower.includes(part)),
+                      );
+
+                  console.log(
+                    `Partial match check - Client: "${clientConditionLower}" vs Disqualifying: "${disqualifyingConditionLower}" - Match: ${isPartialMatch}`,
+                  );
+
+                  return isPartialMatch;
+                },
+              );
+
+              if (partialMatch) {
+                console.log(
+                  `HEALTH CONDITIONS CHECK: FAILED - Client has disqualifying condition (partial match): ${condition}`,
+                );
                 return false;
               }
             }
           }
 
-          // Check disqualifying medications
           if (
             plan.disqualifying_medications &&
             plan.disqualifying_medications.length > 0
@@ -546,11 +544,108 @@ export function ClientForm() {
             }
           }
 
-          // If all checks pass, the plan is a match
+          if (
+            plan.build_chart_jsonb &&
+            clientData.weight &&
+            clientData.gender
+          ) {
+            console.log(
+              `\n***** PLAN BUILD CHART CHECK: ${plan.company_name} - ${plan.product_name} *****`,
+            );
+            console.log(
+              `Client weight: ${clientData.weight}, gender: ${clientData.gender}`,
+            );
+
+            let maxWeightInChart = 0;
+            let minWeightInChart = Infinity;
+            if (
+              plan.build_chart_jsonb &&
+              Array.isArray(plan.build_chart_jsonb)
+            ) {
+              plan.build_chart_jsonb.forEach((entry) => {
+                if (entry.max_weight > maxWeightInChart) {
+                  maxWeightInChart = entry.max_weight;
+                }
+                if (entry.min_weight < minWeightInChart) {
+                  minWeightInChart = entry.min_weight;
+                }
+              });
+            }
+            console.log(
+              `Build chart weight range: ${minWeightInChart} - ${maxWeightInChart} lbs`,
+            );
+            console.log(
+              `Build chart entries: ${plan.build_chart_jsonb?.length || 0}`,
+            );
+
+            // Ensure weight and height values are properly parsed as numbers
+            const weightNum = parseFloat(String(clientData.weight)) || 0;
+            const heightFeet = parseFloat(String(clientData.height_feet)) || 0;
+            const heightInches =
+              parseFloat(String(clientData.height_inches)) || 0;
+            const legacyHeight = clientData.height
+              ? parseFloat(String(clientData.height))
+              : undefined;
+
+            console.log(
+              `Parsed weight: ${weightNum} lbs (raw: ${clientData.weight}, type: ${typeof weightNum})`,
+            );
+            console.log(
+              `Parsed height: ${heightFeet}ft ${heightInches}in (raw feet: ${clientData.height_feet}, raw inches: ${clientData.height_inches})`,
+            );
+            console.log(
+              `Legacy height: ${legacyHeight !== undefined ? legacyHeight + " inches" : "not provided"}`,
+            );
+
+            // Perform a quick check against the maximum weight in the chart
+            // If weight exceeds the maximum in the chart, we can immediately determine ineligibility
+            if (weightNum > maxWeightInChart) {
+              console.log(
+                `QUICK CHECK FAILED: Client weight ${weightNum} exceeds maximum chart weight ${maxWeightInChart}`,
+              );
+              console.log(`***** END PLAN BUILD CHART CHECK *****\n`);
+              return false;
+            }
+
+            console.log(
+              `Quick check - Client weight ${weightNum} vs chart range ${minWeightInChart}-${maxWeightInChart}`,
+            );
+            console.log(
+              `Weight > Max check: ${weightNum} > ${maxWeightInChart} = ${weightNum > maxWeightInChart}`,
+            );
+            console.log(
+              `Weight < Min check: ${weightNum} < ${minWeightInChart} = ${weightNum < minWeightInChart}`,
+            );
+
+            const isEligibleBuild = checkBuildEligibility(
+              clientData.gender,
+              weightNum,
+              heightFeet,
+              heightInches,
+              legacyHeight,
+              plan.build_chart_jsonb,
+            );
+
+            console.log(
+              `Build eligibility result for ${plan.company_name} - ${plan.product_name}: ${isEligibleBuild}`,
+            );
+
+            if (!isEligibleBuild) {
+              console.log(
+                `BUILD CHART CHECK: FAILED - ${plan.company_name} - ${plan.product_name}: Client weight ${weightNum} outside range for height ${heightFeet}ft ${heightInches}in`,
+              );
+              console.log(`***** END PLAN BUILD CHART CHECK *****\n`);
+              return false;
+            }
+            console.log(
+              `BUILD CHART CHECK: PASSED - ${plan.company_name} - ${plan.product_name}`,
+            );
+            console.log(`***** END PLAN BUILD CHART CHECK *****\n`);
+          }
+
           return true;
         });
 
-        // Set all plans as eligible
         const plansWithStatus = matchingPlans.map((plan) => ({
           ...plan,
           eligibility_status: "eligible",
@@ -559,12 +654,10 @@ export function ClientForm() {
         setMatchingPlans(plansWithStatus);
       }
 
-      // Save client data to database only if it doesn't already exist
       try {
         const { data: user } = await supabase.auth.getUser();
         const userId = user.user?.id;
 
-        // Skip client creation if it already exists
         let clientRecord = null;
         if (!existingClient && userId) {
           const { data: newClientRecord, error: clientError } = await supabase
@@ -576,7 +669,7 @@ export function ClientForm() {
               date_of_birth:
                 clientData.date_of_birth || clientData._calculatedDob || "",
               state: clientData.state,
-              zip_code: "00000", // Default value since we removed the field
+              zip_code: "00000",
               height: clientData.height ? parseFloat(clientData.height) : null,
               height_feet: clientData.height_feet
                 ? parseFloat(clientData.height_feet)
@@ -601,7 +694,6 @@ export function ClientForm() {
           clientRecord = newClientRecord;
         }
 
-        // Log activity for time saved tracking
         if (userId && clientRecord) {
           await supabase.from("user_activity").insert({
             user_id: userId,
@@ -610,7 +702,6 @@ export function ClientForm() {
           });
         }
 
-        // Save dependents if any and if we have a client record
         if (dependents.length > 0 && clientRecord) {
           const dependentsToInsert = dependents.map((dep) => ({
             client_id: clientRecord.id,
@@ -619,6 +710,10 @@ export function ClientForm() {
             gender: dep.gender,
             date_of_birth: dep.date_of_birth || dep._calculatedDob || "",
             height: dep.height ? parseFloat(dep.height) : null,
+            height_feet: dep.height_feet ? parseFloat(dep.height_feet) : null,
+            height_inches: dep.height_inches
+              ? parseFloat(dep.height_inches)
+              : null,
             weight: dep.weight ? parseFloat(dep.weight) : null,
             health_conditions: [
               ...dep.health_conditions,
@@ -634,13 +729,11 @@ export function ClientForm() {
           if (dependentsError) throw dependentsError;
         }
 
-        // Show a message if client already exists
         if (existingClient) {
           console.log("Client already exists, skipped creating duplicate");
         }
       } catch (dbError) {
         console.error("Error saving client data:", dbError);
-        // Continue showing results even if saving fails
       }
     } catch (error) {
       console.error("Error submitting form:", error);
@@ -766,7 +859,6 @@ export function ClientForm() {
                         onChange={(e) => {
                           const age = parseInt(e.target.value);
                           if (!isNaN(age)) {
-                            // Calculate DOB based on age but store it in a hidden field
                             const today = new Date();
                             const birthYear = today.getFullYear() - age;
                             const dob = new Date(
@@ -774,12 +866,10 @@ export function ClientForm() {
                               today.getMonth(),
                               today.getDate(),
                             );
-                            // Store the calculated date but keep the checkbox in age mode
                             const dobString = dob.toISOString().split("T")[0];
                             setClientData((prev) => ({
                               ...prev,
-                              date_of_birth: "", // Keep this empty to maintain age mode
-                              // Store the actual DOB in a hidden field that will be used for submission
+                              date_of_birth: "",
                               _calculatedDob: dobString,
                             }));
                           }
@@ -857,7 +947,6 @@ export function ClientForm() {
                             value={clientData.height_feet}
                             onChange={(e) => {
                               handleClientChange(e);
-                              // Update the legacy height field in inches for backward compatibility
                               const feet = parseInt(e.target.value) || 0;
                               const inches =
                                 parseInt(clientData.height_inches) || 0;
@@ -884,7 +973,6 @@ export function ClientForm() {
                             value={clientData.height_inches}
                             onChange={(e) => {
                               handleClientChange(e);
-                              // Update the legacy height field in inches for backward compatibility
                               const feet =
                                 parseInt(clientData.height_feet) || 0;
                               const inches = parseInt(e.target.value) || 0;

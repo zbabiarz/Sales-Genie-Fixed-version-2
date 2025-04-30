@@ -91,9 +91,12 @@ export async function POST(request: Request) {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error("Webhook error:", errorText);
-      throw new Error(`Failed to process media file: ${errorText}`);
+      // Don't read the response body here, as we'll handle it below
+      console.error(
+        `Webhook error: Status ${response.status} ${response.statusText}`,
+      );
+      console.log("Continuing to process response despite error status");
+      // Don't throw an error here, we'll try to handle the response anyway
     }
 
     // Safely handle the response - it might not be JSON

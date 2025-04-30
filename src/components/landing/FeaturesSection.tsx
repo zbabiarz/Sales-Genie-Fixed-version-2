@@ -44,29 +44,6 @@ export default function FeaturesSection() {
             </div>
           </div>
 
-          {/* AI Chatbot Assistant */}
-          <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-teal-100">
-            <div className="text-teal-600 mb-4">
-              <BrainCircuit className="w-6 h-6" />
-            </div>
-            <h3 className="text-xl font-semibold mb-2">AI Chatbot Assistant</h3>
-            <p className="text-gray-600 mb-4">
-              Get real-time product information and client-specific
-              recommendations through our intuitive chat interface. Get instant
-              underwriting answers. No more hold times, callbacks, or waiting on
-              carriers.
-            </p>
-            <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
-              <Image
-                src="https://storage.googleapis.com/msgsndr/QFjnAi2H2A9Cpxi7l0ri/media/6807c1be2ffc4506e853ca11.png"
-                alt="AI Chatbot Assistant"
-                width={600}
-                height={400}
-                className="w-full object-cover"
-              />
-            </div>
-          </div>
-
           {/* Sales Call Analyzer */}
           <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-teal-100">
             <div className="text-teal-600 mb-4">
@@ -83,6 +60,29 @@ export default function FeaturesSection() {
               <Image
                 src="https://storage.googleapis.com/msgsndr/QFjnAi2H2A9Cpxi7l0ri/media/6807c1be81c3b078030d5433.png"
                 alt="Sales Call Analyzer"
+                width={600}
+                height={400}
+                className="w-full object-cover"
+              />
+            </div>
+          </div>
+
+          {/* AI Chatbot Assistant */}
+          <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-teal-100">
+            <div className="text-teal-600 mb-4">
+              <BrainCircuit className="w-6 h-6" />
+            </div>
+            <h3 className="text-xl font-semibold mb-2">AI Chatbot Assistant</h3>
+            <p className="text-gray-600 mb-4">
+              Get real-time product information and client-specific
+              recommendations through our intuitive chat interface. Get instant
+              underwriting answers. No more hold times, callbacks, or waiting on
+              carriers.
+            </p>
+            <div className="mt-4 rounded-lg overflow-hidden border border-gray-200 shadow-sm">
+              <Image
+                src="https://storage.googleapis.com/msgsndr/QFjnAi2H2A9Cpxi7l0ri/media/6807c1be2ffc4506e853ca11.png"
+                alt="AI Chatbot Assistant"
                 width={600}
                 height={400}
                 className="w-full object-cover"

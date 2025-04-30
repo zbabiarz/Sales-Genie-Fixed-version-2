@@ -53,6 +53,111 @@ function isAgeInRange(clientAge: number, ageRange: string): boolean {
   return false; // If format is unrecognized
 }
 
+interface BuildChartEntry {
+  gender: string;
+  min_weight: number;
+  max_weight: number;
+  height_feet: number;
+  height_inches: number;
+}
+
+function checkBuildEligibility(
+  gender: string,
+  weight: number,
+  heightFeet: number,
+  heightInches: number,
+  legacyHeight: number | undefined,
+  buildChart: BuildChartEntry[],
+): boolean {
+  // If no build chart data, consider eligible
+  if (!buildChart || !Array.isArray(buildChart) || buildChart.length === 0) {
+    console.log("No build chart data available, considering eligible");
+    return true;
+  }
+
+  console.log(
+    `Checking build eligibility - weight: ${weight}, height: ${heightFeet}ft ${heightInches}in`,
+  );
+
+  // Filter build chart entries for the client's gender
+  const genderEntries = buildChart.filter(
+    (entry) => entry.gender.toLowerCase() === gender.toLowerCase(),
+  );
+
+  if (genderEntries.length === 0) {
+    console.log(`No build chart entries found for gender: ${gender}`);
+    return true; // If no entries for this gender, consider eligible
+  }
+
+  // Calculate total height in inches for comparison
+  let totalHeightInches: number;
+
+  if (legacyHeight !== undefined && legacyHeight > 0) {
+    // Use legacy height if provided
+    totalHeightInches = legacyHeight;
+    console.log(`Using legacy height: ${totalHeightInches} inches`);
+  } else {
+    // Calculate from feet and inches
+    totalHeightInches = heightFeet * 12 + heightInches;
+    console.log(
+      `Calculated height: ${totalHeightInches} inches (${heightFeet}ft ${heightInches}in)`,
+    );
+  }
+
+  // Find the entry that matches the client's height
+  const matchingHeightEntry = genderEntries.find((entry) => {
+    const entryHeightInches = entry.height_feet * 12 + entry.height_inches;
+    return entryHeightInches === totalHeightInches;
+  });
+
+  // If no exact height match found, find the closest entry
+  if (!matchingHeightEntry) {
+    console.log(
+      `No exact height match found for ${heightFeet}ft ${heightInches}in`,
+    );
+    // Find closest height entry
+    let closestEntry = genderEntries[0];
+    let minDifference = Infinity;
+
+    for (const entry of genderEntries) {
+      const entryHeightInches = entry.height_feet * 12 + entry.height_inches;
+      const difference = Math.abs(entryHeightInches - totalHeightInches);
+
+      if (difference < minDifference) {
+        minDifference = difference;
+        closestEntry = entry;
+      }
+    }
+
+    // If the closest entry is within 1 inch, use it
+    if (minDifference <= 1) {
+      console.log(
+        `Using closest height entry: ${closestEntry.height_feet}ft ${closestEntry.height_inches}in (min weight: ${closestEntry.min_weight}, max weight: ${closestEntry.max_weight})`,
+      );
+
+      const isEligible =
+        weight >= closestEntry.min_weight && weight <= closestEntry.max_weight;
+      console.log(
+        `Weight ${weight} is ${isEligible ? "within" : "outside"} range ${closestEntry.min_weight}-${closestEntry.max_weight}`,
+      );
+      return isEligible;
+    }
+
+    // If no close match, consider eligible
+    console.log("No close height match found, considering eligible");
+    return true;
+  }
+
+  // Check if weight is within range for the matching height
+  const isEligible =
+    weight >= matchingHeightEntry.min_weight &&
+    weight <= matchingHeightEntry.max_weight;
+  console.log(
+    `Exact height match found. Weight ${weight} is ${isEligible ? "within" : "outside"} range ${matchingHeightEntry.min_weight}-${matchingHeightEntry.max_weight}`,
+  );
+  return isEligible;
+}
+
 serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
@@ -173,7 +278,40 @@ serve(async (req) => {
         plan.disqualifying_health_conditions.length > 0
       ) {
         for (const condition of clientData.health_conditions || []) {
-          if (plan.disqualifying_health_conditions.includes(condition)) {
+          // Check for partial matches in disqualifying conditions
+          const partialMatch = plan.disqualifying_health_conditions.some(
+            (disqualifyingCondition) => {
+              // Case insensitive check
+              const clientConditionLower = condition.toLowerCase();
+              const disqualifyingConditionLower =
+                disqualifyingCondition.toLowerCase();
+
+              // Check if client condition is part of a disqualifying condition
+              // or if disqualifying condition contains the client condition
+              const isPartialMatch =
+                disqualifyingConditionLower.includes(clientConditionLower) ||
+                clientConditionLower.includes(disqualifyingConditionLower) ||
+                // Split by common separators and check each part
+                disqualifyingConditionLower
+                  .split(/[\/,\-\s]+/)
+                  .some(
+                    (part) =>
+                      part === clientConditionLower ||
+                      (part.length > 3 && clientConditionLower.includes(part)),
+                  );
+
+              console.log(
+                `Partial match check - Client: "${clientConditionLower}" vs Disqualifying: "${disqualifyingConditionLower}" - Match: ${isPartialMatch}`,
+              );
+
+              return isPartialMatch;
+            },
+          );
+
+          if (partialMatch) {
+            console.log(
+              `HEALTH CONDITIONS CHECK: FAILED - Client has disqualifying condition (partial match): ${condition}`,
+            );
             return false;
           }
         }
@@ -182,7 +320,45 @@ serve(async (req) => {
         if (clientData.dependents && clientData.dependents.length > 0) {
           for (const dependent of clientData.dependents) {
             for (const condition of dependent.health_conditions || []) {
-              if (plan.disqualifying_health_conditions.includes(condition)) {
+              // Check for partial matches in disqualifying conditions
+              const partialMatch = plan.disqualifying_health_conditions.some(
+                (disqualifyingCondition) => {
+                  // Case insensitive check
+                  const dependentConditionLower = condition.toLowerCase();
+                  const disqualifyingConditionLower =
+                    disqualifyingCondition.toLowerCase();
+
+                  // Check if dependent condition is part of a disqualifying condition
+                  // or if disqualifying condition contains the dependent condition
+                  const isPartialMatch =
+                    disqualifyingConditionLower.includes(
+                      dependentConditionLower,
+                    ) ||
+                    dependentConditionLower.includes(
+                      disqualifyingConditionLower,
+                    ) ||
+                    // Split by common separators and check each part
+                    disqualifyingConditionLower
+                      .split(/[\/,\-\s]+/)
+                      .some(
+                        (part) =>
+                          part === dependentConditionLower ||
+                          (part.length > 3 &&
+                            dependentConditionLower.includes(part)),
+                      );
+
+                  console.log(
+                    `Dependent partial match check - Dependent: "${dependentConditionLower}" vs Disqualifying: "${disqualifyingConditionLower}" - Match: ${isPartialMatch}`,
+                  );
+
+                  return isPartialMatch;
+                },
+              );
+
+              if (partialMatch) {
+                console.log(
+                  `HEALTH CONDITIONS CHECK: FAILED - Dependent has disqualifying condition (partial match): ${condition}`,
+                );
                 return false;
               }
             }
@@ -210,6 +386,33 @@ serve(async (req) => {
               }
             }
           }
+        }
+      }
+
+      // Check build chart eligibility if available
+      if (plan.build_chart_jsonb && clientData.weight && clientData.gender) {
+        console.log(`Checking build chart for ${plan.product_name}`);
+
+        // Use either the new height fields or legacy height
+        const heightFeet = clientData.height_feet || 0;
+        const heightInches = clientData.height_inches || 0;
+        const legacyHeight = clientData.height
+          ? parseFloat(String(clientData.height))
+          : undefined;
+
+        console.log(
+          `Before eligibility check - weight: ${weightNum} (${typeof weightNum}), height: ${heightFeet}ft ${heightInches}in`,
+        );
+        console.log(
+          `Weight conversion: ${clientData.weight} (${typeof clientData.weight}) -> ${weightNum} (${typeof weightNum})`,
+        );
+
+        // Quick check against maximum weight in chart
+        if (weightNum > maxWeightInChart) {
+          console.log(
+            `QUICK CHECK FAILED: Client weight ${weightNum} exceeds maximum chart weight ${maxWeightInChart}`,
+          );
+          return false;
         }
       }
 

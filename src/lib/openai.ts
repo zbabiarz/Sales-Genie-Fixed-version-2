@@ -64,7 +64,30 @@ export const sendMessageToAssistant = async (
     // Prepare context as additional instructions if available
     let additionalInstructions = "";
     if (context) {
-      additionalInstructions = `Here is additional context that might be helpful:\n\nInsurance Plans: ${JSON.stringify(context.insurancePlans)}\n\nHealth Conditions: ${JSON.stringify(context.healthConditions)}\n\nMedications: ${JSON.stringify(context.medications)}`;
+      // Truncate each part of the context to ensure we don't exceed OpenAI's limit
+      const maxCharsPerSection = 80000; // Allocate chars per section (total limit is 256000)
+
+      // Helper function to truncate JSON strings
+      const truncateJSON = (obj, maxLength) => {
+        const str = JSON.stringify(obj);
+        if (str.length <= maxLength) return str;
+        return str.substring(0, maxLength) + "... (truncated)";
+      };
+
+      const insurancePlansStr = truncateJSON(
+        context.insurancePlans || [],
+        maxCharsPerSection,
+      );
+      const healthConditionsStr = truncateJSON(
+        context.healthConditions || [],
+        maxCharsPerSection,
+      );
+      const medicationsStr = truncateJSON(
+        context.medications || [],
+        maxCharsPerSection,
+      );
+
+      additionalInstructions = `Here is additional context that might be helpful:\n\nInsurance Plans: ${insurancePlansStr}\n\nHealth Conditions: ${healthConditionsStr}\n\nMedications: ${medicationsStr}`;
     }
 
     // Run the assistant on the thread with the OpenAI-Beta header for v2
