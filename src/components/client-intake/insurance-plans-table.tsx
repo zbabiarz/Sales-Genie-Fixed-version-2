@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Table,
   TableBody,
@@ -39,11 +39,13 @@ interface InsurancePlan {
 interface InsurancePlansTableProps {
   plans: InsurancePlan[];
   clientId?: string;
+  companyFilter?: string;
 }
 
 export function InsurancePlansTable({
   plans,
   clientId,
+  companyFilter,
 }: InsurancePlansTableProps) {
   const [sortField, setSortField] =
     useState<keyof InsurancePlan>("product_price");
@@ -51,6 +53,10 @@ export function InsurancePlansTable({
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [eligibilityFilter, setEligibilityFilter] = useState<string>("all");
+  const [selectedCompany, setSelectedCompany] = useState(
+    companyFilter || "all",
+  );
+  const [companyOptions, setCompanyOptions] = useState<string[]>([]);
   const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>(
     {},
   );
@@ -214,6 +220,16 @@ export function InsurancePlansTable({
     }
   };
 
+  // Load unique company names from plans on component mount
+  useEffect(() => {
+    if (plans && plans.length > 0) {
+      const uniqueCompanies = Array.from(
+        new Set(plans.map((plan) => plan.company_name)),
+      ).sort();
+      setCompanyOptions(uniqueCompanies);
+    }
+  }, [plans]);
+
   const filteredPlans = plans
     .filter((plan) => {
       // Apply category filter
@@ -229,6 +245,11 @@ export function InsurancePlansTable({
         eligibilityFilter !== "all" &&
         plan.eligibility_status !== eligibilityFilter
       ) {
+        return false;
+      }
+
+      // Apply company filter
+      if (selectedCompany !== "all" && plan.company_name !== selectedCompany) {
         return false;
       }
 
@@ -304,6 +325,23 @@ export function InsurancePlansTable({
         </div>
 
         <div className="w-full md:w-1/4 space-y-2">
+          <Label htmlFor="company-select">Company</Label>
+          <Select value={selectedCompany} onValueChange={setSelectedCompany}>
+            <SelectTrigger id="company-select">
+              <SelectValue placeholder="All Companies" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Companies</SelectItem>
+              {companyOptions.map((company) => (
+                <SelectItem key={company} value={company}>
+                  {company}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="w-full md:w-1/4 space-y-2">
           <Label htmlFor="category-filter">Category</Label>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger id="category-filter">
@@ -341,6 +379,7 @@ export function InsurancePlansTable({
           className="w-full md:w-auto"
           onClick={() => {
             setSearchTerm("");
+            setSelectedCompany("all");
             setCategoryFilter("all");
             setEligibilityFilter("all");
           }}

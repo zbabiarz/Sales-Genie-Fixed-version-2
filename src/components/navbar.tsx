@@ -13,17 +13,17 @@ export default async function Navbar() {
 
   return (
     <nav className="w-full border-b border-gray-200 bg-white py-4">
-      <div className="container mx-auto px-4 flex justify-between items-center">
+      <div className="container mx-auto px-2 sm:px-4 flex justify-between items-center flex-nowrap">
         <Link
           href="/"
           prefetch
-          className="text-xl font-bold text-teal-600 flex items-center"
+          className="text-lg sm:text-xl font-bold text-teal-600 flex items-center flex-nowrap whitespace-nowrap"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
             viewBox="0 0 24 24"
             fill="currentColor"
-            className="w-8 h-8 mr-2"
+            className="w-6 h-6 sm:w-8 sm:h-8 mr-1 sm:mr-2"
           >
             <path
               fillRule="evenodd"
@@ -32,7 +32,7 @@ export default async function Navbar() {
             />
           </svg>
           Insurance Sales Genie{" "}
-          <span className="text-xs align-top bg-teal-100 text-teal-800 px-1 py-0.5 rounded-md ml-1 font-medium">
+          <span className="text-xs align-top bg-teal-100 text-teal-800 px-1 py-0.5 rounded-md ml-0.5 sm:ml-1 font-medium">
             beta
           </span>
         </Link>
@@ -56,7 +56,7 @@ export default async function Navbar() {
             Pricing
           </Link>
         </div>
-        <div className="flex gap-4 items-center">
+        <div className="flex gap-2 sm:gap-4 items-center flex-nowrap">
           {user ? (
             <>
               <Link href="/dashboard">
@@ -70,13 +70,13 @@ export default async function Navbar() {
             <>
               <Link
                 href="/sign-in"
-                className="px-4 py-2 text-sm font-medium text-gray-700 hover:text-teal-600"
+                className="px-2 sm:px-4 py-2 text-sm font-medium text-gray-700 hover:text-teal-600 whitespace-nowrap"
               >
                 Sign In
               </Link>
               <Link
                 href="/sign-up"
-                className="px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700"
+                className="px-2 sm:px-4 py-2 text-sm font-medium text-white bg-teal-600 rounded-md hover:bg-teal-700 whitespace-nowrap"
               >
                 Sign Up
               </Link>

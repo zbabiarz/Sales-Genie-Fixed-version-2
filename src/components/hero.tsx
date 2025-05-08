@@ -10,7 +10,7 @@ export default function Hero() {
       <div className="relative pt-24 pb-32 sm:pt-32 sm:pb-40">
         <div className="container mx-auto px-4">
           <div className="text-center max-w-4xl mx-auto">
-            <h1 className="text-5xl sm:text-6xl font-bold text-gray-900 mb-8 tracking-tight">
+            <h1 className="text-4xl sm:text-6xl font-bold text-gray-900 mb-8 tracking-tight">
               <span className="text-gray-900">Close</span>{" "}
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-600 to-teal-400">
                 More Deals
@@ -26,7 +26,7 @@ export default function Hero() {
               with the Right Insurance Plan Without the Headaches.
             </h1>
 
-            <p className="text-xl text-gray-600 mb-6 max-w-2xl mx-auto leading-relaxed flex">
+            <p className="text-base sm:text-xl text-gray-600 mb-6 max-w-2xl mx-auto leading-relaxed flex">
               Finally… an AI-powered sales system designed to help brokers close
               faster, convert more, and eliminate guesswork from underwriting
               and sales calls.

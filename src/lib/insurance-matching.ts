@@ -57,15 +57,23 @@ export function isAgeInRange(clientAge: number, ageRange: string): boolean {
   // Handle 'All Ages' case or empty/null age range
   if (!ageRange || ageRange === "All Ages") return true;
 
+  console.log(`Checking if age ${clientAge} is in range ${ageRange}`);
+
   // Parse age range in format '18-29', '30-44', '45-54', '55-64', '65+'
   if (ageRange.endsWith("+")) {
     // For ranges like '65+'
     const minAge = parseInt(ageRange.replace("+", ""));
-    return clientAge >= minAge;
+    const result = clientAge >= minAge;
+    console.log(`Range ${ageRange}: minAge=${minAge}, result=${result}`);
+    return result;
   } else if (ageRange.includes("-")) {
     // For ranges like '18-29'
     const [minAge, maxAge] = ageRange.split("-").map(Number);
-    return clientAge >= minAge && clientAge <= maxAge;
+    const result = clientAge >= minAge && clientAge <= maxAge;
+    console.log(
+      `Range ${ageRange}: minAge=${minAge}, maxAge=${maxAge}, result=${result}`,
+    );
+    return result;
   }
 
   return false; // If format is unrecognized

@@ -4,9 +4,7 @@ export const runtime = "nodejs";
 
 // Configure the maximum request size
 export const maxDuration = 300; // 5 minutes
-export const bodyParser = {
-  sizeLimit: "100mb",
-};
+// Note: bodyParser is not supported in App Router, using Next.js built-in body parsing
 
 // Helper function to get mock analysis data
 const getMockAnalysisData = () => {

@@ -13,14 +13,27 @@ import { useRouter } from "next/navigation";
 
 export function QuickActions({
   onTabChange,
+  aiSectionRef,
+  intakeSectionRef,
+  callsSectionRef,
 }: {
   onTabChange?: (tab: string) => void;
+  aiSectionRef?: React.RefObject<HTMLDivElement>;
+  intakeSectionRef?: React.RefObject<HTMLDivElement>;
+  callsSectionRef?: React.RefObject<HTMLDivElement>;
 }) {
   const router = useRouter();
 
   const handleNewClient = () => {
     if (onTabChange) {
       onTabChange("intake");
+
+      // Scroll to the intake section after a short delay to allow tab change to complete
+      setTimeout(() => {
+        if (intakeSectionRef?.current) {
+          intakeSectionRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 100);
     } else {
       // If used outside of dashboard, navigate to dashboard with intake tab
       router.push("/dashboard?tab=intake");
@@ -30,6 +43,13 @@ export function QuickActions({
   const handleUploadCall = () => {
     if (onTabChange) {
       onTabChange("calls");
+
+      // Scroll to the calls section after a short delay to allow tab change to complete
+      setTimeout(() => {
+        if (callsSectionRef?.current) {
+          callsSectionRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 100);
     } else {
       router.push("/dashboard?tab=calls");
     }
@@ -38,6 +58,13 @@ export function QuickActions({
   const handleAskAI = () => {
     if (onTabChange) {
       onTabChange("ai");
+
+      // Scroll to the AI section after a short delay to allow tab change to complete
+      setTimeout(() => {
+        if (aiSectionRef?.current) {
+          aiSectionRef.current.scrollIntoView({ behavior: "smooth" });
+        }
+      }, 100);
     } else {
       router.push("/dashboard?tab=ai");
     }

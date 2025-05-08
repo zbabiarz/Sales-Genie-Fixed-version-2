@@ -255,20 +255,47 @@ serve(async (req) => {
       }
 
       // Check age range eligibility
-      if (clientData.age && plan.age_range && plan.age_range !== "All Ages") {
+      if (clientData.age) {
         console.log(
-          `Checking age eligibility: Client age ${clientData.age}, Plan age range ${plan.age_range}`,
+          `Checking age eligibility: Client age ${clientData.age}, Plan age range ${plan.age_range || "All Ages"}`,
         );
-        const isEligibleAge = isAgeInRange(clientData.age, plan.age_range);
-        if (!isEligibleAge) {
-          console.log(
-            `Age range mismatch: ${clientData.age} not in ${plan.age_range}`,
-          );
-          return false;
+
+        // If plan has a specific age range (not "All Ages" or empty)
+        if (plan.age_range && plan.age_range !== "All Ages") {
+          // Parse age range in format '18-29', '30-44', '45-54', '55-64', '65+'
+          let isEligibleAge = false;
+
+          if (plan.age_range.endsWith("+")) {
+            // For ranges like '65+'
+            const minAge = parseInt(plan.age_range.replace("+", ""));
+            isEligibleAge = clientData.age >= minAge;
+            console.log(
+              `Range ${plan.age_range}: minAge=${minAge}, result=${isEligibleAge}`,
+            );
+          } else if (plan.age_range.includes("-")) {
+            // For ranges like '18-29'
+            const [minAge, maxAge] = plan.age_range.split("-").map(Number);
+            isEligibleAge =
+              clientData.age >= minAge && clientData.age <= maxAge;
+            console.log(
+              `Range ${plan.age_range}: minAge=${minAge}, maxAge=${maxAge}, result=${isEligibleAge}`,
+            );
+          }
+
+          if (!isEligibleAge) {
+            console.log(
+              `AGE CHECK: FAILED - Age range mismatch: ${clientData.age} not in ${plan.age_range}`,
+            );
+            return false;
+          }
         }
+
+        console.log(
+          `AGE CHECK: PASSED - Client age ${clientData.age} is acceptable for plan`,
+        );
       } else {
         console.log(
-          `Age check passed or skipped: Client age ${clientData.age}, Plan age range ${plan.age_range}`,
+          `Age check skipped: Client age not provided, Plan age range ${plan.age_range || "All Ages"}`,
         );
       }
 

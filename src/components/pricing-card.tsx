@@ -11,7 +11,8 @@ import {
   CardHeader,
   CardTitle,
 } from "./ui/card";
-import { supabase } from "../../supabase/supabase";
+import { createClient } from "../../supabase/client";
+import { useState } from "react";
 
 export default function PricingCard({
   item,
@@ -20,6 +21,8 @@ export default function PricingCard({
   item: any;
   user: User | null;
 }) {
+  const [isLoading, setIsLoading] = useState(false);
+
   // Handle checkout process
   const handleCheckout = async (priceId: string) => {
     if (!user) {
@@ -29,6 +32,10 @@ export default function PricingCard({
     }
 
     try {
+      setIsLoading(true);
+      const supabase = createClient();
+      console.log("Creating checkout session for price ID:", priceId);
+
       const { data, error } = await supabase.functions.invoke(
         "supabase-functions-create-checkout",
         {
@@ -44,17 +51,21 @@ export default function PricingCard({
       );
 
       if (error) {
+        console.error("Error creating checkout session:", error);
         throw error;
       }
 
       // Redirect to Stripe checkout
       if (data?.url) {
+        console.log("Redirecting to checkout URL:", data.url);
         window.location.href = data.url;
       } else {
         throw new Error("No checkout URL returned");
       }
     } catch (error) {
       console.error("Error creating checkout session:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -88,7 +99,11 @@ export default function PricingCard({
     return baseFeatures;
   };
 
-  const features = getFeatures(item.name || "");
+  const features = getFeatures(item?.name || "");
+
+  if (!item) {
+    return null;
+  }
 
   return (
     <Card
@@ -108,9 +123,9 @@ export default function PricingCard({
         </CardTitle>
         <CardDescription className="flex items-baseline gap-2 mt-2">
           <span className="text-4xl font-bold text-gray-900">
-            ${item?.amount / 100}
+            ${(item?.amount || 0) / 100}
           </span>
-          <span className="text-gray-600">/{item?.interval}</span>
+          <span className="text-gray-600">/{item?.interval || "month"}</span>
         </CardDescription>
       </CardHeader>
       <CardContent className="relative">
@@ -128,9 +143,10 @@ export default function PricingCard({
           onClick={async () => {
             await handleCheckout(item.id);
           }}
+          disabled={isLoading}
           className={`w-full py-6 text-lg font-medium ${item.popular ? "bg-teal-600 hover:bg-teal-700" : ""}`}
         >
-          Get Started
+          {isLoading ? "Processing..." : "Get Started"}
         </Button>
       </CardFooter>
     </Card>

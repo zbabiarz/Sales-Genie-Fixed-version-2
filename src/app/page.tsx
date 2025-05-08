@@ -3,7 +3,7 @@ import Navbar from "@/components/navbar";
 import PricingCard from "@/components/pricing-card";
 import Footer from "@/components/footer";
 import FeaturesSection from "@/components/landing/FeaturesSection";
-import { createClient } from "../../supabase/server";
+import { createClient } from "../app/supabase/server";
 import {
   ArrowUpRight,
   CheckCircle2,
@@ -22,6 +22,8 @@ export default async function Home() {
   const { data: plans, error } = await supabase.functions.invoke(
     "supabase-functions-get-plans",
   );
+
+  console.log("Plans from API:", plans);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-white to-teal-50">

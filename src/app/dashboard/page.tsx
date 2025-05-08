@@ -22,13 +22,18 @@ import { AIChat } from "@/components/ai-assistant/ai-chat";
 import { CallAnalyzerPage } from "@/components/sales-call/call-analyzer-page";
 import { ClientManagement } from "@/components/client-management/client-management";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("ai");
   const searchParams = useSearchParams();
   const tabParam = searchParams.get("tab");
+
+  // Create refs for each section to enable scrolling
+  const aiSectionRef = useRef<HTMLDivElement>(null);
+  const intakeSectionRef = useRef<HTMLDivElement>(null);
+  const callsSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Set active tab from URL parameter if available
@@ -67,7 +72,12 @@ export default function Dashboard() {
           <DashboardHeader user={user} />
 
           {/* Quick Actions */}
-          <QuickActions onTabChange={setActiveTab} />
+          <QuickActions
+            onTabChange={setActiveTab}
+            aiSectionRef={aiSectionRef}
+            intakeSectionRef={intakeSectionRef}
+            callsSectionRef={callsSectionRef}
+          />
 
           {/* Stats Section */}
           <DashboardStats />
@@ -118,7 +128,7 @@ export default function Dashboard() {
             </TabsList>
 
             <TabsContent value="ai">
-              <div className="space-y-4">
+              <div ref={aiSectionRef} className="space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle>AI Chatbot Assistant</CardTitle>
@@ -145,7 +155,7 @@ export default function Dashboard() {
             </TabsContent>
 
             <TabsContent value="intake">
-              <div className="space-y-4">
+              <div ref={intakeSectionRef} className="space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle>Client Intake & Matching</CardTitle>
@@ -163,7 +173,7 @@ export default function Dashboard() {
             </TabsContent>
 
             <TabsContent value="calls">
-              <div className="space-y-4">
+              <div ref={callsSectionRef} className="space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle>Sales Call Analyzer</CardTitle>

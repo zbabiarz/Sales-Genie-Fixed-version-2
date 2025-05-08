@@ -19,6 +19,7 @@ import {
   Lightbulb,
   Loader2,
 } from "lucide-react";
+import { SavedCallResults } from "./SavedCallResults";
 import { createClient } from "../../../supabase/client";
 
 type FeedbackSection = {
@@ -47,6 +48,52 @@ type CallAnalysis = {
   topics?: string[];
   keywords?: string[];
   total_call_duration?: string;
+  analysis?: string;
+  identity_name?: string;
+  identity_description?: string;
+};
+
+// Helper function to get identity name and description based on score
+const getIdentityInfo = (
+  score: number,
+): { name: string; emoji: string; description: string; tone: string } => {
+  if (score >= 9) {
+    return {
+      name: "The Sales Prodigy",
+      emoji: "🏆",
+      description: "You're a master of the call. Others should take notes.",
+      tone: "Aspirational",
+    };
+  } else if (score >= 7) {
+    return {
+      name: "The Closer-in-Training",
+      emoji: "💼",
+      description: "You're smooth. A few tweaks and you'll be unstoppable.",
+      tone: "Confident",
+    };
+  } else if (score >= 5) {
+    return {
+      name: "The Script Reader",
+      emoji: "📝",
+      description: "You're following the playbook—now make it yours.",
+      tone: "Playful + Honest",
+    };
+  } else if (score >= 3) {
+    return {
+      name: "The Try-Hard",
+      emoji: "🎯",
+      description:
+        "You've got heart! With a bit of finesse, you'll hit the mark.",
+      tone: "Encouraging",
+    };
+  } else {
+    return {
+      name: "The Rookie",
+      emoji: "🐣",
+      description: "You're just hatching. Lots of potential—time to level up!",
+      tone: "Light + Humorous",
+    };
+  }
 };
 
 export function CallAnalyzer() {
@@ -56,11 +103,13 @@ export function CallAnalyzer() {
   const [uploadedFile, setUploadedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [transcript, setTranscript] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
   // Direct webhook URL for processing
   const webhookUrl =
-    "https://effortlessai.app.n8n.cloud/webhook-test/5735f10d-5868-44b8-884e-cff2b722cb8d";
+    "https://effortlessai.app.n8n.cloud/webhook/5735f10d-5868-44b8-884e-cff2b722cb8d";
   const useMockData = false; // Always use the real webhook
   // Supabase edge function URL to receive analysis results
   const analysisWebhookUrl =
@@ -333,29 +382,76 @@ export function CallAnalyzer() {
             setIsProcessing(false);
 
             // Map the analysis results to our expected format
+            const scoreValue =
+              analysisResults.final_score &&
+              typeof analysisResults.final_score === "string"
+                ? parseFloat(analysisResults.final_score.split("/")[0]) || 7
+                : 7;
+
+            // Get identity info based on score
+            const identityInfo = getIdentityInfo(scoreValue);
+
             const mappedAnalysis: CallAnalysis = {
-              strengths: analysisResults.agents_strengths || [],
-              improvements: analysisResults.areas_for_improvement || [],
-              recommendations: analysisResults.actionable_recommendations || [],
+              strengths: Array.isArray(analysisResults.agents_strengths)
+                ? analysisResults.agents_strengths
+                : [],
+              improvements: Array.isArray(analysisResults.areas_for_improvement)
+                ? analysisResults.areas_for_improvement
+                : [],
+              recommendations: Array.isArray(
+                analysisResults.actionable_recommendations,
+              )
+                ? analysisResults.actionable_recommendations
+                : [],
               summary: webhookData.summary || "",
               sentiment: {
                 overall: "Moderately Effective",
                 tonality: "Professional",
-                score:
-                  parseFloat(analysisResults.final_score?.split("/")[0]) || 7,
+                score: scoreValue,
               },
-              // Include all the additional fields from the analysis results
-              agents_strengths: analysisResults.agents_strengths,
-              areas_for_improvement: analysisResults.areas_for_improvement,
-              actionable_recommendations:
+              // Include all the additional fields from the analysis results, ensuring they're properly formatted
+              agents_strengths: Array.isArray(analysisResults.agents_strengths)
+                ? analysisResults.agents_strengths
+                : [],
+              areas_for_improvement: Array.isArray(
+                analysisResults.areas_for_improvement,
+              )
+                ? analysisResults.areas_for_improvement
+                : [],
+              actionable_recommendations: Array.isArray(
                 analysisResults.actionable_recommendations,
-              missed_opportunities: analysisResults.missed_opportunities,
+              )
+                ? analysisResults.actionable_recommendations
+                : [],
+              missed_opportunities: Array.isArray(
+                analysisResults.missed_opportunities,
+              )
+                ? analysisResults.missed_opportunities
+                : [],
               suggested_training_focus:
-                analysisResults.suggested_training_focus,
-              final_score: analysisResults.final_score,
-              topics: analysisResults.topics,
-              keywords: analysisResults.keywords,
-              total_call_duration: analysisResults.total_call_duration,
+                typeof analysisResults.suggested_training_focus === "string"
+                  ? analysisResults.suggested_training_focus
+                  : "",
+              final_score:
+                typeof analysisResults.final_score === "string"
+                  ? analysisResults.final_score
+                  : "",
+              topics: Array.isArray(analysisResults.topics)
+                ? analysisResults.topics
+                : [],
+              keywords: Array.isArray(analysisResults.keywords)
+                ? analysisResults.keywords
+                : [],
+              total_call_duration:
+                typeof analysisResults.total_call_duration === "string"
+                  ? analysisResults.total_call_duration
+                  : "",
+              analysis:
+                typeof analysisResults.analysis === "string"
+                  ? analysisResults.analysis
+                  : "",
+              identity_name: `${identityInfo.emoji} ${identityInfo.name}`,
+              identity_description: identityInfo.description,
             };
 
             return {
@@ -416,6 +512,9 @@ export function CallAnalyzer() {
   const getMockAnalysisData = () => {
     const mockTranscript =
       "Hello, this is John from Insurance Sales Genie. I'm calling to discuss your insurance needs. Based on your profile, I think our Premium Health plan would be a great fit for you. It offers comprehensive coverage with a low deductible. What do you think about that? ... Yes, the monthly premium is $450. ... I understand your concern about the price. We do have a more affordable Basic Care plan at $250 per month, but it doesn't include dental and vision. ... Great, I'll send you more information about both plans. Is there anything specific you'd like to know about these plans?";
+
+    const mockScore = 8.5;
+    const identityInfo = getIdentityInfo(mockScore);
 
     return {
       transcript: mockTranscript,
@@ -491,6 +590,8 @@ export function CallAnalyzer() {
           "Alternative Options",
         ],
         total_call_duration: "5 minutes",
+        identity_name: `${identityInfo.emoji} ${identityInfo.name}`,
+        identity_description: identityInfo.description,
       },
     };
   };
@@ -523,16 +624,50 @@ export function CallAnalyzer() {
     </Card>
   );
 
+  const saveAnalysis = async () => {
+    if (!analysis || !recordingId) {
+      alert("No analysis available to save");
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Update the call recording record to mark it as saved
+      const { error } = await supabase
+        .from("call_recordings")
+        .update({
+          status: "completed",
+          analysis_results: analysis,
+          transcript: transcript,
+        })
+        .eq("id", recordingId);
+
+      if (error) {
+        console.error("Error saving analysis:", error);
+        alert("Failed to save analysis. Please try again.");
+      } else {
+        setSaveSuccess(true);
+        setTimeout(() => setSaveSuccess(false), 3000); // Reset success message after 3 seconds
+      }
+    } catch (error) {
+      console.error("Error saving analysis:", error);
+      alert("An unexpected error occurred while saving the analysis.");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   return (
     <div className="w-full">
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
+        <TabsList className="grid w-full grid-cols-3">
           <TabsTrigger value="upload" disabled={isAnalyzing}>
             Upload & Analyze
           </TabsTrigger>
           <TabsTrigger value="results" disabled={!analysis || isAnalyzing}>
             Analysis Results
           </TabsTrigger>
+          <TabsTrigger value="saved">Saved Call Results</TabsTrigger>
         </TabsList>
 
         <TabsContent value="upload" className="space-y-4 mt-4">
@@ -633,20 +768,27 @@ export function CallAnalyzer() {
 
                   {renderFeedbackSection({
                     title: "Strengths",
-                    items: analysis.agents_strengths || analysis.strengths,
+                    items: Array.isArray(analysis.agents_strengths)
+                      ? analysis.agents_strengths
+                      : Array.isArray(analysis.strengths)
+                        ? analysis.strengths
+                        : [],
                     icon: <CheckCircle className="h-5 w-5" />,
                     color: "text-green-600",
                   })}
 
                   {renderFeedbackSection({
                     title: "Areas for Improvement",
-                    items:
-                      analysis.areas_for_improvement || analysis.improvements,
+                    items: Array.isArray(analysis.areas_for_improvement)
+                      ? analysis.areas_for_improvement
+                      : Array.isArray(analysis.improvements)
+                        ? analysis.improvements
+                        : [],
                     icon: <AlertCircle className="h-5 w-5" />,
                     color: "text-amber-600",
                   })}
 
-                  {analysis.missed_opportunities &&
+                  {Array.isArray(analysis.missed_opportunities) &&
                     analysis.missed_opportunities.length > 0 &&
                     renderFeedbackSection({
                       title: "Missed Opportunities",
@@ -657,12 +799,28 @@ export function CallAnalyzer() {
 
                   {renderFeedbackSection({
                     title: "Key Recommendations",
-                    items:
-                      analysis.actionable_recommendations ||
-                      analysis.recommendations,
+                    items: Array.isArray(analysis.actionable_recommendations)
+                      ? analysis.actionable_recommendations
+                      : Array.isArray(analysis.recommendations)
+                        ? analysis.recommendations
+                        : [],
                     icon: <Lightbulb className="h-5 w-5" />,
                     color: "text-blue-600",
                   })}
+
+                  <Card className="mb-4">
+                    <CardHeader className="flex flex-row items-center gap-2 text-purple-600">
+                      <Lightbulb className="h-5 w-5" />
+                      <CardTitle className="text-lg">
+                        Detailed Analysis
+                      </CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <div className="bg-muted p-4 rounded-md text-sm whitespace-pre-wrap">
+                        {analysis.analysis || "No detailed analysis available"}
+                      </div>
+                    </CardContent>
+                  </Card>
 
                   <Card className="mb-4">
                     <CardHeader className="flex flex-row items-center gap-2 bg-purple-50">
@@ -672,66 +830,60 @@ export function CallAnalyzer() {
                         </span>
                       </div>
                       <CardTitle className="text-lg">
-                        Call Sentiment Analysis
+                        Final Call Breakdown
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="space-y-4">
                       <div className="flex flex-col space-y-4">
-                        {analysis.topics && analysis.topics.length > 0 && (
-                          <div>
-                            <h4 className="font-medium text-sm text-gray-500 mb-1">
-                              CALL TOPICS
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                              {analysis.topics.map((topic, index) => (
-                                <span
-                                  key={index}
-                                  className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs"
-                                >
-                                  {topic}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {analysis.keywords && analysis.keywords.length > 0 && (
-                          <div>
-                            <h4 className="font-medium text-sm text-gray-500 mb-1">
-                              KEY TERMS
-                            </h4>
-                            <div className="flex flex-wrap gap-2">
-                              {analysis.keywords.map((keyword, index) => (
-                                <span
-                                  key={index}
-                                  className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs"
-                                >
-                                  {keyword}
-                                </span>
-                              ))}
-                            </div>
-                          </div>
-                        )}
-
-                        {analysis.suggested_training_focus && (
-                          <div>
-                            <h4 className="font-medium text-sm text-gray-500 mb-1">
-                              SUGGESTED TRAINING FOCUS
-                            </h4>
-                            <p className="text-lg font-medium">
-                              {analysis.suggested_training_focus}
-                            </p>
-                          </div>
-                        )}
-
-                        {analysis.total_call_duration &&
-                          analysis.total_call_duration !== "Not provided" && (
+                        {analysis.topics &&
+                          Array.isArray(analysis.topics) &&
+                          analysis.topics.length > 0 && (
                             <div>
                               <h4 className="font-medium text-sm text-gray-500 mb-1">
-                                CALL DURATION
+                                CALL TOPICS
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {analysis.topics.map((topic, index) => (
+                                  <span
+                                    key={index}
+                                    className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs"
+                                  >
+                                    {topic}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {analysis.keywords &&
+                          Array.isArray(analysis.keywords) &&
+                          analysis.keywords.length > 0 && (
+                            <div>
+                              <h4 className="font-medium text-sm text-gray-500 mb-1">
+                                KEY TERMS
+                              </h4>
+                              <div className="flex flex-wrap gap-2">
+                                {analysis.keywords.map((keyword, index) => (
+                                  <span
+                                    key={index}
+                                    className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs"
+                                  >
+                                    {keyword}
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+
+                        {analysis.suggested_training_focus &&
+                          typeof analysis.suggested_training_focus ===
+                            "string" && (
+                            <div>
+                              <h4 className="font-medium text-sm text-gray-500 mb-1">
+                                SUGGESTED TRAINING FOCUS
                               </h4>
                               <p className="text-lg font-medium">
-                                {analysis.total_call_duration}
+                                {analysis.suggested_training_focus}
                               </p>
                             </div>
                           )}
@@ -741,38 +893,40 @@ export function CallAnalyzer() {
                             CALL SCORE
                           </h4>
                           <div className="flex items-center gap-3">
+                            {/* Completely new implementation of the score bar */}
                             <div className="relative w-full max-w-xs h-6 bg-gray-200 rounded-full overflow-hidden">
-                              {analysis.final_score ? (
-                                <div
-                                  className={`absolute top-0 left-0 h-full ${
-                                    parseInt(
-                                      analysis.final_score.split("/")[0],
-                                    ) >= 8
-                                      ? "bg-green-500"
-                                      : parseInt(
-                                            analysis.final_score.split("/")[0],
-                                          ) >= 6
-                                        ? "bg-yellow-500"
-                                        : "bg-red-500"
-                                  }`}
-                                  style={{
-                                    width: `${(parseInt(analysis.final_score.split("/")[0]) / parseInt(analysis.final_score.split("/")[1])) * 100}%`,
-                                  }}
-                                ></div>
-                              ) : analysis.sentiment?.score ? (
-                                <div
-                                  className={`absolute top-0 left-0 h-full ${
-                                    analysis.sentiment.score >= 8
-                                      ? "bg-green-500"
-                                      : analysis.sentiment.score >= 6
-                                        ? "bg-yellow-500"
-                                        : "bg-red-500"
-                                  }`}
-                                  style={{
-                                    width: `${(analysis.sentiment.score / 10) * 100}%`,
-                                  }}
-                                ></div>
-                              ) : null}
+                              {(() => {
+                                // Get the score as a number between 0-10
+                                let score = 0;
+                                let maxScore = 10;
+
+                                if (analysis.final_score) {
+                                  const parts = analysis.final_score.split("/");
+                                  score = parseFloat(parts[0]) || 0;
+                                  maxScore = parseFloat(parts[1]) || 10;
+                                } else if (analysis.sentiment?.score) {
+                                  score = analysis.sentiment.score;
+                                  maxScore = 10;
+                                } else {
+                                  score = 7; // Default score
+                                  maxScore = 10;
+                                }
+
+                                // Calculate percentage width
+                                const percentage = (score / maxScore) * 100;
+
+                                // Determine color based on score
+                                let color = "bg-red-500";
+                                if (score >= 8) color = "bg-green-500";
+                                else if (score >= 6) color = "bg-yellow-500";
+
+                                return (
+                                  <div
+                                    className={`absolute top-0 left-0 h-full ${color}`}
+                                    style={{ width: `${percentage}%` }}
+                                  />
+                                );
+                              })()}
                             </div>
                             <span className="text-xl font-bold">
                               {analysis.final_score ||
@@ -781,19 +935,20 @@ export function CallAnalyzer() {
                                   : "N/A")}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-500 mt-2">
-                            {analysis.final_score &&
-                            parseInt(analysis.final_score.split("/")[0]) >= 8
-                              ? "Excellent call performance based on the Jeremy Miner methodology"
-                              : analysis.final_score &&
-                                  parseInt(
-                                    analysis.final_score.split("/")[0],
-                                  ) >= 6
-                                ? "Good call with room for improvement in the Jeremy Miner framework"
-                                : analysis.final_score
-                                  ? "Needs significant improvement to align with Jeremy Miner sales principles"
-                                  : "Score not available"}
-                          </p>
+
+                          {/* Identity name and description */}
+                          {analysis.identity_name && (
+                            <div className="mt-3">
+                              <h4 className="text-lg font-semibold text-purple-700">
+                                {analysis.identity_name}
+                              </h4>
+                              {analysis.identity_description && (
+                                <p className="text-sm text-gray-600 mt-1">
+                                  {analysis.identity_description}
+                                </p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </CardContent>
@@ -812,19 +967,40 @@ export function CallAnalyzer() {
                     Start New Analysis
                   </Button>
                   <Button
-                    onClick={() => {
-                      // In a real app, this would save the analysis to the database
-                      // For now, just show a success message
-                      alert("Analysis saved successfully!");
-                    }}
+                    onClick={saveAnalysis}
+                    disabled={isSaving || !recordingId}
                     className="bg-teal-600 hover:bg-teal-700"
                   >
-                    Save Analysis
+                    {isSaving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : saveSuccess ? (
+                      "Saved Successfully!"
+                    ) : (
+                      "Save Analysis"
+                    )}
                   </Button>
                 </CardFooter>
               </Card>
             </div>
           )}
+        </TabsContent>
+
+        <TabsContent value="saved" className="space-y-4 mt-4">
+          <Card>
+            <CardHeader>
+              <CardTitle>Saved Call Analyses</CardTitle>
+              <CardDescription>
+                View and manage your previously analyzed sales calls
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {/* Import and use the SavedCallResults component */}
+              <SavedCallResults />
+            </CardContent>
+          </Card>
         </TabsContent>
       </Tabs>
     </div>

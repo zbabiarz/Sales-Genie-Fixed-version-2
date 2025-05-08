@@ -28,7 +28,7 @@ export function SubscriptionCheck({
 
       try {
         // Check if user has an active subscription
-        const { data: subscription } = await supabase
+        const { data: subscription, error } = await supabase
           .from("subscriptions")
           .select("*")
           .eq("user_id", data.user.id)
@@ -38,12 +38,16 @@ export function SubscriptionCheck({
         if (subscription) {
           setIsAuthorized(true);
         } else {
+          console.log(
+            "No active subscription found, redirecting to",
+            redirectTo,
+          );
           router.push(redirectTo);
         }
       } catch (error) {
         console.error("Error checking subscription:", error);
-        // For demo purposes, allow access even if check fails
-        setIsAuthorized(true);
+        // Redirect to pricing page if subscription check fails
+        router.push(redirectTo);
       }
     };
 
