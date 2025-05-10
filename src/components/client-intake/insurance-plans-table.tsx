@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
+import { isAgeInRange } from "@/utils/age-range-utils";
 import {
   Table,
   TableBody,
@@ -47,12 +49,22 @@ export function InsurancePlansTable({
   clientId,
   companyFilter,
 }: InsurancePlansTableProps) {
+  const searchParams = useSearchParams();
+
+  // Function to extract age range from product name
+  const extractAgeRangeFromName = (productName: string): string | null => {
+    // Look for patterns like (30-44, Family) or (45-54, Employee)
+    const ageRangeMatch = productName.match(/\((\d+\-\d+|\d+\+)\s*,\s*[^)]+\)/);
+    if (ageRangeMatch && ageRangeMatch[1]) {
+      return ageRangeMatch[1]; // Return just the age range part
+    }
+    return null;
+  };
   const [sortField, setSortField] =
     useState<keyof InsurancePlan>("product_price");
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
-  const [eligibilityFilter, setEligibilityFilter] = useState<string>("all");
   const [selectedCompany, setSelectedCompany] = useState(
     companyFilter || "all",
   );
@@ -240,12 +252,33 @@ export function InsurancePlansTable({
         return false;
       }
 
-      // Apply eligibility filter
-      if (
-        eligibilityFilter !== "all" &&
-        plan.eligibility_status !== eligibilityFilter
-      ) {
-        return false;
+      // STRICT age range check - always filter out plans that don't match the client's age range
+      if (searchParams && searchParams.get("age")) {
+        const clientAge = parseInt(searchParams.get("age") || "0");
+        if (clientAge > 0) {
+          // If plan has a specific age range in the name, extract and use it
+          const ageRangeInName = extractAgeRangeFromName(plan.product_name);
+          const ageRangeToCheck = ageRangeInName || plan.age_range;
+
+          if (ageRangeToCheck && ageRangeToCheck !== "All Ages") {
+            // Check if age is in range
+            let isInRange = false;
+            if (ageRangeToCheck.endsWith("+")) {
+              const minAge = parseInt(ageRangeToCheck.replace("+", ""));
+              isInRange = clientAge >= minAge;
+            } else if (ageRangeToCheck.includes("-")) {
+              const [minAge, maxAge] = ageRangeToCheck.split("-").map(Number);
+              isInRange = clientAge >= minAge && clientAge <= maxAge;
+            }
+
+            if (!isInRange) {
+              console.log(
+                `STRICT FILTERING: Filtering out plan ${plan.product_name} with age range ${ageRangeToCheck} for client age ${clientAge}`,
+              );
+              return false;
+            }
+          }
+        }
       }
 
       // Apply company filter
@@ -358,22 +391,6 @@ export function InsurancePlansTable({
           </Select>
         </div>
 
-        <div className="w-full md:w-1/4 space-y-2">
-          <Label htmlFor="eligibility-filter">Eligibility</Label>
-          <Select
-            value={eligibilityFilter}
-            onValueChange={setEligibilityFilter}
-          >
-            <SelectTrigger id="eligibility-filter">
-              <SelectValue placeholder="All Plans" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All Plans</SelectItem>
-              <SelectItem value="eligible">Eligible Plans</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
         <Button
           variant="outline"
           className="w-full md:w-auto"
@@ -381,7 +398,6 @@ export function InsurancePlansTable({
             setSearchTerm("");
             setSelectedCompany("all");
             setCategoryFilter("all");
-            setEligibilityFilter("all");
           }}
         >
           Reset Filters
@@ -389,260 +405,259 @@ export function InsurancePlansTable({
       </div>
 
       {/* Eligible Plans Section */}
-      {(eligibilityFilter === "all" || eligibilityFilter === "eligible") &&
-        eligiblePlans.length > 0 && (
-          <div className="space-y-3">
-            <div className="flex items-center gap-2">
-              <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm font-medium flex items-center">
-                <span className="mr-1">✅</span> Eligible Plans
-              </div>
-              <div className="text-sm text-muted-foreground">
-                Plans you qualify for based on your information
-              </div>
+      {eligiblePlans.length > 0 && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm font-medium flex items-center">
+              <span className="mr-1">✅</span> Eligible Plans
             </div>
-
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[180px]">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("company_name")}
-                        className="flex items-center gap-1 p-0 h-auto font-medium"
-                      >
-                        Company
-                        <ArrowUpDown className="h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("product_name")}
-                        className="flex items-center gap-1 p-0 h-auto font-medium"
-                      >
-                        Product
-                        <ArrowUpDown className="h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead>
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("product_category")}
-                        className="flex items-center gap-1 p-0 h-auto font-medium"
-                      >
-                        Category
-                        <ArrowUpDown className="h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="text-right">
-                      <Button
-                        variant="ghost"
-                        onClick={() => handleSort("product_price")}
-                        className="flex items-center gap-1 p-0 h-auto font-medium ml-auto"
-                      >
-                        Price
-                        <ArrowUpDown className="h-3 w-3" />
-                      </Button>
-                    </TableHead>
-                    <TableHead className="w-[100px] text-right">
-                      Details
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {eligiblePlans.map((plan) => (
-                    <>
-                      <TableRow key={plan.id} className="bg-green-50/30">
-                        <TableCell className="font-medium">
-                          {plan.company_name}
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <div>{plan.product_name}</div>
-                            {/* Removed the duplicate product_benefits display here */}
-                          </div>
-                        </TableCell>
-                        <TableCell>{plan.product_category}</TableCell>
-                        <TableCell className="text-right">
-                          $
-                          {plan.product_price
-                            ? plan.product_price.toFixed(2)
-                            : "0.00"}
-                        </TableCell>
-                        <TableCell className="text-right">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => togglePlanExpansion(plan.id)}
-                            className="flex items-center gap-1"
-                          >
-                            {expandedPlans[plan.id] ? (
-                              <>
-                                Hide Details
-                                <ChevronUp className="h-3 w-3 ml-1" />
-                              </>
-                            ) : (
-                              <>
-                                See More
-                                <ChevronDown className="h-3 w-3 ml-1" />
-                              </>
-                            )}
-                          </Button>
-                        </TableCell>
-                      </TableRow>
-                      {expandedPlans[plan.id] && (
-                        <TableRow className="bg-green-50/10">
-                          <TableCell colSpan={5} className="p-4">
-                            <div className="bg-white p-4 rounded-md border border-green-100 shadow-sm">
-                              <h4 className="font-medium text-lg mb-3">
-                                {plan.product_name} Details
-                              </h4>
-
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-                                <div>
-                                  <h5 className="font-medium text-sm mb-2">
-                                    Plan Information
-                                  </h5>
-                                  <ul className="space-y-2 text-sm">
-                                    <li>
-                                      <span className="font-medium">
-                                        Provider:
-                                      </span>{" "}
-                                      {plan.company_name}
-                                    </li>
-                                    <li>
-                                      <span className="font-medium">
-                                        Category:
-                                      </span>{" "}
-                                      {plan.product_category}
-                                    </li>
-                                    <li>
-                                      <span className="font-medium">
-                                        Monthly Premium:
-                                      </span>{" "}
-                                      $
-                                      {plan.product_price
-                                        ? plan.product_price.toFixed(2)
-                                        : "0.00"}
-                                    </li>
-                                    <li>
-                                      <span className="font-medium">
-                                        Annual Cost:
-                                      </span>{" "}
-                                      $
-                                      {plan.product_price
-                                        ? (plan.product_price * 12).toFixed(2)
-                                        : "0.00"}
-                                    </li>
-                                  </ul>
-                                </div>
-
-                                <div>
-                                  <h5 className="font-medium text-sm mb-2">
-                                    Additional Benefits
-                                  </h5>
-                                  <ul className="list-disc pl-5 text-sm space-y-1">
-                                    <li>24/7 Customer Support</li>
-                                    <li>Online Account Management</li>
-                                    <li>Mobile App Access</li>
-                                    {plan.product_category === "Health" && (
-                                      <>
-                                        <li>Telehealth Services Included</li>
-                                        <li>Wellness Program Discounts</li>
-                                      </>
-                                    )}
-                                    {plan.product_category === "Life" && (
-                                      <>
-                                        <li>Accelerated Death Benefit</li>
-                                        <li>Waiver of Premium Option</li>
-                                      </>
-                                    )}
-                                  </ul>
-                                </div>
-                              </div>
-
-                              <div className="mt-4">
-                                <h5 className="font-medium text-sm mb-2">
-                                  Coverage Details
-                                </h5>
-                                <div className="text-sm mb-4 bg-white p-4 rounded-md border border-gray-200 shadow-sm">
-                                  {formatProductBenefits(plan.product_benefits)}
-                                </div>
-
-                                {plan.product_category === "Health" && (
-                                  <div className="mt-3">
-                                    <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                      Includes Preventive Care
-                                    </span>
-                                    <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full ml-2">
-                                      Network: PPO
-                                    </span>
-                                  </div>
-                                )}
-
-                                {plan.product_category === "Dental" && (
-                                  <div className="mt-3">
-                                    <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                      Includes Orthodontics
-                                    </span>
-                                    <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full ml-2">
-                                      No Waiting Period
-                                    </span>
-                                  </div>
-                                )}
-
-                                {plan.product_category === "Vision" && (
-                                  <div className="mt-3">
-                                    <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                      Includes Designer Frames
-                                    </span>
-                                    <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full ml-2">
-                                      Annual Eye Exam
-                                    </span>
-                                  </div>
-                                )}
-
-                                {plan.product_category === "Life" && (
-                                  <div className="mt-3">
-                                    <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
-                                      Guaranteed Issue
-                                    </span>
-                                    <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full ml-2">
-                                      Level Premiums
-                                    </span>
-                                  </div>
-                                )}
-                              </div>
-
-                              <div className="mt-4 flex justify-end">
-                                <Button
-                                  size="sm"
-                                  className="bg-teal-600 hover:bg-teal-700"
-                                  onClick={() => handleSelectPlan(plan.id)}
-                                  disabled={selectingPlan === plan.id}
-                                >
-                                  {selectingPlan === plan.id ? (
-                                    <>
-                                      <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
-                                      Selecting...
-                                    </>
-                                  ) : (
-                                    "Select This Plan"
-                                  )}
-                                </Button>
-                              </div>
-                            </div>
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </>
-                  ))}
-                </TableBody>
-              </Table>
+            <div className="text-sm text-muted-foreground">
+              Plans you qualify for based on your information
             </div>
           </div>
-        )}
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[180px]">
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("company_name")}
+                      className="flex items-center gap-1 p-0 h-auto font-medium"
+                    >
+                      Company
+                      <ArrowUpDown className="h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("product_name")}
+                      className="flex items-center gap-1 p-0 h-auto font-medium"
+                    >
+                      Product
+                      <ArrowUpDown className="h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("product_category")}
+                      className="flex items-center gap-1 p-0 h-auto font-medium"
+                    >
+                      Category
+                      <ArrowUpDown className="h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("product_price")}
+                      className="flex items-center gap-1 p-0 h-auto font-medium ml-auto"
+                    >
+                      Price
+                      <ArrowUpDown className="h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="w-[100px] text-right">
+                    Details
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {eligiblePlans.map((plan) => (
+                  <>
+                    <TableRow key={plan.id} className="bg-green-50/30">
+                      <TableCell className="font-medium">
+                        {plan.company_name}
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <div>{plan.product_name}</div>
+                          {/* Removed the duplicate product_benefits display here */}
+                        </div>
+                      </TableCell>
+                      <TableCell>{plan.product_category}</TableCell>
+                      <TableCell className="text-right">
+                        $
+                        {plan.product_price
+                          ? plan.product_price.toFixed(2)
+                          : "0.00"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => togglePlanExpansion(plan.id)}
+                          className="flex items-center gap-1"
+                        >
+                          {expandedPlans[plan.id] ? (
+                            <>
+                              Hide Details
+                              <ChevronUp className="h-3 w-3 ml-1" />
+                            </>
+                          ) : (
+                            <>
+                              See More
+                              <ChevronDown className="h-3 w-3 ml-1" />
+                            </>
+                          )}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    {expandedPlans[plan.id] && (
+                      <TableRow className="bg-green-50/10">
+                        <TableCell colSpan={5} className="p-4">
+                          <div className="bg-white p-4 rounded-md border border-green-100 shadow-sm">
+                            <h4 className="font-medium text-lg mb-3">
+                              {plan.product_name} Details
+                            </h4>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                              <div>
+                                <h5 className="font-medium text-sm mb-2">
+                                  Plan Information
+                                </h5>
+                                <ul className="space-y-2 text-sm">
+                                  <li>
+                                    <span className="font-medium">
+                                      Provider:
+                                    </span>{" "}
+                                    {plan.company_name}
+                                  </li>
+                                  <li>
+                                    <span className="font-medium">
+                                      Category:
+                                    </span>{" "}
+                                    {plan.product_category}
+                                  </li>
+                                  <li>
+                                    <span className="font-medium">
+                                      Monthly Premium:
+                                    </span>{" "}
+                                    $
+                                    {plan.product_price
+                                      ? plan.product_price.toFixed(2)
+                                      : "0.00"}
+                                  </li>
+                                  <li>
+                                    <span className="font-medium">
+                                      Annual Cost:
+                                    </span>{" "}
+                                    $
+                                    {plan.product_price
+                                      ? (plan.product_price * 12).toFixed(2)
+                                      : "0.00"}
+                                  </li>
+                                </ul>
+                              </div>
+
+                              <div>
+                                <h5 className="font-medium text-sm mb-2">
+                                  Additional Benefits
+                                </h5>
+                                <ul className="list-disc pl-5 text-sm space-y-1">
+                                  <li>24/7 Customer Support</li>
+                                  <li>Online Account Management</li>
+                                  <li>Mobile App Access</li>
+                                  {plan.product_category === "Health" && (
+                                    <>
+                                      <li>Telehealth Services Included</li>
+                                      <li>Wellness Program Discounts</li>
+                                    </>
+                                  )}
+                                  {plan.product_category === "Life" && (
+                                    <>
+                                      <li>Accelerated Death Benefit</li>
+                                      <li>Waiver of Premium Option</li>
+                                    </>
+                                  )}
+                                </ul>
+                              </div>
+                            </div>
+
+                            <div className="mt-4">
+                              <h5 className="font-medium text-sm mb-2">
+                                Coverage Details
+                              </h5>
+                              <div className="text-sm mb-4 bg-white p-4 rounded-md border border-gray-200 shadow-sm">
+                                {formatProductBenefits(plan.product_benefits)}
+                              </div>
+
+                              {plan.product_category === "Health" && (
+                                <div className="mt-3">
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                    Includes Preventive Care
+                                  </span>
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full ml-2">
+                                    Network: PPO
+                                  </span>
+                                </div>
+                              )}
+
+                              {plan.product_category === "Dental" && (
+                                <div className="mt-3">
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                    Includes Orthodontics
+                                  </span>
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full ml-2">
+                                    No Waiting Period
+                                  </span>
+                                </div>
+                              )}
+
+                              {plan.product_category === "Vision" && (
+                                <div className="mt-3">
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                    Includes Designer Frames
+                                  </span>
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full ml-2">
+                                    Annual Eye Exam
+                                  </span>
+                                </div>
+                              )}
+
+                              {plan.product_category === "Life" && (
+                                <div className="mt-3">
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                    Guaranteed Issue
+                                  </span>
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full ml-2">
+                                    Level Premiums
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="mt-4 flex justify-end">
+                              <Button
+                                size="sm"
+                                className="bg-teal-600 hover:bg-teal-700"
+                                onClick={() => handleSelectPlan(plan.id)}
+                                disabled={selectingPlan === plan.id}
+                              >
+                                {selectingPlan === plan.id ? (
+                                  <>
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                                    Selecting...
+                                  </>
+                                ) : (
+                                  "Select This Plan"
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
 
       {/* Other Plans (if any without eligibility status) */}
       {otherPlans.length > 0 && (
@@ -843,4 +858,14 @@ export function InsurancePlansTable({
       </div>
     </div>
   );
+}
+
+function extractAgeRangeFromName(name: string): string | null {
+  // Check if the name contains a specific age range pattern
+  const ageRangePattern = /(\d+)-(\d+)/;
+  const match = name.match(ageRangePattern);
+  if (match) {
+    return `${match[1]}-${match[2]}`;
+  }
+  return null;
 }

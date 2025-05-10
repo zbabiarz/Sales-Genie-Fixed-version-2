@@ -54,6 +54,14 @@ export async function GET() {
     });
   } catch (error) {
     console.error("Error in API route:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "An unexpected error occurred.";
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

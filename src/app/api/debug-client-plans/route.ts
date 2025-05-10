@@ -55,6 +55,14 @@ export async function GET(request: Request) {
     });
   } catch (error) {
     console.error("Error in debug endpoint:", error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "An unexpected error occurred.";
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

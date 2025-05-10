@@ -337,24 +337,32 @@ export function filterMatchingPlans(
     }
 
     // Check age range eligibility
-    if (clientData.age && plan.age_range && plan.age_range !== "All Ages") {
+    if (clientData.age) {
       console.log(
-        `AGE CHECK: Checking age eligibility - Client age ${clientData.age}, Plan age range ${plan.age_range}`,
+        `Checking age eligibility: Client age ${clientData.age}, Plan age range ${plan.age_range || "All Ages"}`,
       );
-      const isEligibleAge = isAgeInRange(clientData.age, plan.age_range);
-      if (!isEligibleAge) {
-        console.log(
-          `AGE CHECK: FAILED - Age range mismatch: ${clientData.age} not in ${plan.age_range}`,
-        );
-        return false;
+
+      // If plan has a specific age range (not "All Ages" or empty)
+      if (plan.age_range && plan.age_range !== "All Ages") {
+        const isEligibleAge = isAgeInRange(clientData.age, plan.age_range);
+        if (!isEligibleAge) {
+          console.log(
+            `AGE CHECK: FAILED - Age range mismatch: ${clientData.age} not in ${plan.age_range}`,
+          );
+          return false;
+        } else {
+          console.log(
+            `AGE CHECK: PASSED - Client age ${clientData.age} is within plan range ${plan.age_range}`,
+          );
+        }
       } else {
         console.log(
-          `AGE CHECK: PASSED - Client age ${clientData.age} is within plan range ${plan.age_range}`,
+          `AGE CHECK: PASSED - Plan has no specific age range (${plan.age_range || "All Ages"})`,
         );
       }
     } else {
       console.log(
-        `AGE CHECK: PASSED - Client age ${clientData.age || "not provided"}, Plan age range ${plan.age_range || "not specified"}`,
+        `AGE CHECK: SKIPPED - Client age not provided, Plan age range ${plan.age_range || "not specified"}`,
       );
     }
 

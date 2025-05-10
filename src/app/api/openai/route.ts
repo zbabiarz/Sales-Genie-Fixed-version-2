@@ -177,9 +177,14 @@ export async function POST(request: Request) {
     });
   } catch (error) {
     console.error("Error processing OpenAI request:", error);
-    return NextResponse.json(
-      { error: "Failed to process request" },
-      { status: 500 },
-    );
+
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "Failed to process request";
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

@@ -92,9 +92,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ threads: threadPreviews });
   } catch (error) {
     console.error("Error in chat history API:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "An unexpected error occurred.";
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

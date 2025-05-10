@@ -27,9 +27,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ messages: messages.data });
   } catch (error) {
     console.error("Error retrieving messages:", error);
-    return NextResponse.json(
-      { error: "Failed to retrieve messages" },
-      { status: 500 },
-    );
+
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "Failed to retrieve messages";
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

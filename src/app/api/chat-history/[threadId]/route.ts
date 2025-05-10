@@ -57,9 +57,14 @@ export async function GET(
     return NextResponse.json({ messages });
   } catch (error) {
     console.error("Error in thread messages API:", error);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 },
-    );
+
+    const errorMessage =
+      error instanceof Error
+        ? error.message
+        : typeof error === "string"
+          ? error
+          : "An unexpected error occurred.";
+
+    return NextResponse.json({ error: errorMessage }, { status: 500 });
   }
 }

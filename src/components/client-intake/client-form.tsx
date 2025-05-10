@@ -300,6 +300,13 @@ export function ClientForm() {
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
+    // Add the age to the URL for filtering
+    const age = calculateAge(
+      clientData.date_of_birth || clientData._calculatedDob || "",
+    );
+    const url = new URL(window.location.href);
+    url.searchParams.set("age", age.toString());
+    window.history.replaceState({}, "", url);
     e.preventDefault();
     setIsLoading(true);
     setMatchingPlans([]);
@@ -497,11 +504,15 @@ export function ClientForm() {
                 );
                 return false;
               }
-            }
 
-            console.log(
-              `AGE CHECK: PASSED - Client age ${clientData.age} is acceptable for plan`,
-            );
+              console.log(
+                `AGE CHECK: PASSED - Client age ${clientData.age} is within plan range ${plan.age_range}`,
+              );
+            } else {
+              console.log(
+                `AGE CHECK: PASSED - Plan has no specific age range (${plan.age_range || "All Ages"})`,
+              );
+            }
           } else {
             console.log(
               `Age check skipped: Client age not provided, Plan age range ${plan.age_range || "All Ages"}`,

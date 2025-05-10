@@ -257,7 +257,7 @@ serve(async (req) => {
       // Check age range eligibility
       if (clientData.age) {
         console.log(
-          `Checking age eligibility: Client age ${clientData.age}, Plan age range ${plan.age_range || "All Ages"}`,
+          `AGE CHECK: Checking age eligibility - Client age ${clientData.age}, Plan age range ${plan.age_range || "All Ages"}`,
         );
 
         // If plan has a specific age range (not "All Ages" or empty)
@@ -288,11 +288,15 @@ serve(async (req) => {
             );
             return false;
           }
-        }
 
-        console.log(
-          `AGE CHECK: PASSED - Client age ${clientData.age} is acceptable for plan`,
-        );
+          console.log(
+            `AGE CHECK: PASSED - Client age ${clientData.age} is within plan range ${plan.age_range}`,
+          );
+        } else {
+          console.log(
+            `AGE CHECK: PASSED - Plan has no specific age range (${plan.age_range || "All Ages"})`,
+          );
+        }
       } else {
         console.log(
           `Age check skipped: Client age not provided, Plan age range ${plan.age_range || "All Ages"}`,
