@@ -36,6 +36,7 @@ interface InsurancePlan {
   disqualifying_medications?: string[];
   eligibility_status?: "eligible" | "potential";
   isExpanded?: boolean;
+  coverage_type?: string;
 }
 
 interface InsurancePlansTableProps {
@@ -65,6 +66,7 @@ export function InsurancePlansTable({
   const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+  const [coverageTypeFilter, setCoverageTypeFilter] = useState<string>("all");
   const [selectedCompany, setSelectedCompany] = useState(
     companyFilter || "all",
   );
@@ -78,6 +80,13 @@ export function InsurancePlansTable({
   // Get unique categories for filter
   const categories = Array.from(
     new Set(plans.map((plan) => plan.product_category)),
+  );
+
+  // Get unique coverage types for filter
+  const coverageTypes = Array.from(
+    new Set(
+      plans.map((plan) => plan.coverage_type || "unknown").filter(Boolean),
+    ),
   );
 
   const handleSort = (field: keyof InsurancePlan) => {
@@ -252,6 +261,14 @@ export function InsurancePlansTable({
         return false;
       }
 
+      // Apply coverage type filter
+      if (
+        coverageTypeFilter !== "all" &&
+        plan.coverage_type !== coverageTypeFilter
+      ) {
+        return false;
+      }
+
       // STRICT age range check - always filter out plans that don't match the client's age range
       if (searchParams && searchParams.get("age")) {
         const clientAge = parseInt(searchParams.get("age") || "0");
@@ -333,7 +350,7 @@ export function InsurancePlansTable({
   return (
     <div className="space-y-6">
       <div className="flex flex-col md:flex-row gap-4 items-end">
-        <div className="w-full md:w-1/4 space-y-2">
+        <div className="w-full md:w-1/5 space-y-2">
           <Label htmlFor="search">Search</Label>
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
@@ -357,7 +374,7 @@ export function InsurancePlansTable({
           </div>
         </div>
 
-        <div className="w-full md:w-1/4 space-y-2">
+        <div className="w-full md:w-1/5 space-y-2">
           <Label htmlFor="company-select">Company</Label>
           <Select value={selectedCompany} onValueChange={setSelectedCompany}>
             <SelectTrigger id="company-select">
@@ -374,7 +391,7 @@ export function InsurancePlansTable({
           </Select>
         </div>
 
-        <div className="w-full md:w-1/4 space-y-2">
+        <div className="w-full md:w-1/5 space-y-2">
           <Label htmlFor="category-filter">Category</Label>
           <Select value={categoryFilter} onValueChange={setCategoryFilter}>
             <SelectTrigger id="category-filter">
@@ -391,6 +408,26 @@ export function InsurancePlansTable({
           </Select>
         </div>
 
+        <div className="w-full md:w-1/5 space-y-2">
+          <Label htmlFor="coverage-type-filter">Coverage Type</Label>
+          <Select
+            value={coverageTypeFilter}
+            onValueChange={setCoverageTypeFilter}
+          >
+            <SelectTrigger id="coverage-type-filter">
+              <SelectValue placeholder="All Coverage Types" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Coverage Types</SelectItem>
+              {coverageTypes.map((type) => (
+                <SelectItem key={type} value={type}>
+                  {type.charAt(0).toUpperCase() + type.slice(1)}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <Button
           variant="outline"
           className="w-full md:w-auto"
@@ -398,6 +435,7 @@ export function InsurancePlansTable({
             setSearchTerm("");
             setSelectedCompany("all");
             setCategoryFilter("all");
+            setCoverageTypeFilter("all");
           }}
         >
           Reset Filters

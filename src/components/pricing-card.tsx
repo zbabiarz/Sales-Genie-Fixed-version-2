@@ -107,7 +107,7 @@ export default function PricingCard({
 
   return (
     <Card
-      className={`w-full relative overflow-hidden ${item.popular ? "border-2 border-teal-500 shadow-xl" : "border border-gray-200"}`}
+      className={`w-full max-w-md mx-auto relative overflow-hidden ${item.popular ? "border-2 border-teal-500 shadow-xl" : "border border-gray-200"}`}
     >
       {item.popular && (
         <div className="absolute inset-0 bg-gradient-to-br from-teal-50 via-white to-teal-50 opacity-30" />

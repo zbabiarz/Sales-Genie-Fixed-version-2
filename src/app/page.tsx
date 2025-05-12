@@ -126,10 +126,12 @@ export default async function Home() {
               over.
             </p>
           </div>
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-5xl mx-auto">
-            {plans?.map((item: any) => (
-              <PricingCard key={item.id} item={item} user={user} />
-            ))}
+          <div className="flex justify-center max-w-5xl mx-auto">
+            {plans
+              ?.filter((item: any) => item.name !== "Unknown Plan")
+              .map((item: any) => (
+                <PricingCard key={item.id} item={item} user={user} />
+              ))}
           </div>
         </div>
       </section>
