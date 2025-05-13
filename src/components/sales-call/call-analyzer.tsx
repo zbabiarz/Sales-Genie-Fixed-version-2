@@ -508,6 +508,112 @@ export function CallAnalyzer() {
     }
   };
 
+  // Helper function to format transcript with speaker separation
+  const formatTranscript = (transcriptText: string): React.ReactNode => {
+    if (!transcriptText || transcriptText.trim() === "") {
+      return "No transcript available";
+    }
+
+    // Split by common speaker indicators or natural breaks
+    const speakerPatterns = [
+      /([A-Za-z\s]+):\s/g, // "Speaker: text"
+      /\[([^\]]+)\]:\s/g, // "[Speaker]: text"
+      /\n\s*-\s+/g, // New line with dash
+      /\n\n+/g, // Multiple new lines
+      /\.\s+(?=[A-Z])/g, // Period followed by capital letter
+      /\?\s+(?=[A-Z])/g, // Question mark followed by capital letter
+      /!\s+(?=[A-Z])/g, // Exclamation mark followed by capital letter
+    ];
+
+    // First check if transcript already has speaker labels
+    const hasExistingSpeakers = /([A-Za-z\s]+):|\[([^\]]+)\]:/.test(
+      transcriptText,
+    );
+
+    if (hasExistingSpeakers) {
+      // If transcript already has speaker labels, just format it nicely
+      const parts = transcriptText.split(/([A-Za-z\s]+:|\[[^\]]+\]:)/);
+      const formattedParts: React.ReactNode[] = [];
+
+      for (let i = 0; i < parts.length; i++) {
+        if (i % 2 === 0 && i > 0) {
+          // This is content after a speaker label
+          formattedParts.push(<span key={`content-${i}`}>{parts[i]}</span>);
+          formattedParts.push(<br key={`br-${i}`} />);
+          formattedParts.push(<br key={`br2-${i}`} />);
+        } else if (/([A-Za-z\s]+:|\[[^\]]+\]:)/.test(parts[i])) {
+          // This is a speaker label
+          formattedParts.push(
+            <span key={`speaker-${i}`} className="font-bold text-teal-700">
+              {parts[i]}
+            </span>,
+          );
+        } else if (parts[i]) {
+          // This is content without a speaker label
+          formattedParts.push(<span key={`text-${i}`}>{parts[i]}</span>);
+        }
+      }
+
+      return <>{formattedParts}</>;
+    } else {
+      // If no existing speaker labels, try to identify different speakers
+      let segments: string[] = [transcriptText];
+
+      // Apply each pattern to split the text
+      for (const pattern of speakerPatterns) {
+        const newSegments: string[] = [];
+        for (const segment of segments) {
+          const splitParts = segment.split(pattern);
+          if (splitParts.length > 1) {
+            for (let i = 0; i < splitParts.length; i++) {
+              if (splitParts[i].trim()) {
+                newSegments.push(splitParts[i].trim());
+              }
+            }
+          } else {
+            newSegments.push(segment);
+          }
+        }
+        segments = newSegments.filter((s) => s.trim() !== "");
+      }
+
+      // Assign speakers to segments
+      const formattedSegments: React.ReactNode[] = [];
+      let currentSpeaker = 1;
+      let lastSpeaker = 1;
+
+      segments.forEach((segment, index) => {
+        // Simple heuristic: alternate speakers for each segment
+        // In a real implementation, you might use more sophisticated speaker diarization
+        if (index > 0 && segment.length > 15) {
+          // Only switch speakers for substantial segments
+          currentSpeaker = currentSpeaker === 1 ? 2 : 1;
+        }
+
+        // Only add speaker label if it's different from the last one
+        if (currentSpeaker !== lastSpeaker || index === 0) {
+          formattedSegments.push(
+            <div
+              key={`speaker-${index}`}
+              className="font-bold text-teal-700 mt-4"
+            >
+              Caller {currentSpeaker}:
+            </div>,
+          );
+          lastSpeaker = currentSpeaker;
+        }
+
+        formattedSegments.push(
+          <div key={`segment-${index}`} className="ml-4 mb-2">
+            {segment}
+          </div>,
+        );
+      });
+
+      return <>{formattedSegments}</>;
+    }
+  };
+
   // Helper function to get mock analysis data
   const getMockAnalysisData = () => {
     const mockTranscript =
@@ -761,8 +867,8 @@ export function CallAnalyzer() {
                     <h3 className="text-lg font-medium mb-2">
                       Call Transcript
                     </h3>
-                    <div className="bg-muted p-4 rounded-md text-sm whitespace-pre-wrap max-h-60 overflow-y-auto">
-                      {transcript}
+                    <div className="bg-muted p-4 rounded-md text-sm whitespace-pre-wrap overflow-y-auto resize-y min-h-[100px] h-[20vh] cursor-ns-resize">
+                      {formatTranscript(transcript)}
                     </div>
                   </div>
 
@@ -826,7 +932,7 @@ export function CallAnalyzer() {
                     <CardHeader className="flex flex-row items-center gap-2 bg-purple-50">
                       <div className="flex items-center justify-center h-5 w-5 rounded-full bg-purple-100">
                         <span className="text-purple-600 text-xs font-bold">
-                          S
+                          📊
                         </span>
                       </div>
                       <CardTitle className="text-lg">

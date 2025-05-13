@@ -130,11 +130,14 @@ export default function Dashboard() {
             <TabsContent value="ai">
               <div ref={aiSectionRef} className="space-y-4">
                 <Card>
-                  <CardHeader>
-                    <CardTitle>AI Chatbot Assistant</CardTitle>
-                    <CardDescription>
-                      Get real-time product information and recommendations
-                    </CardDescription>
+                  <CardHeader className="flex flex-row items-center gap-2">
+                    <RobotIcon className="h-6 w-6 text-teal-600" />
+                    <div>
+                      <CardTitle>AI Chatbot Assistant</CardTitle>
+                      <CardDescription>
+                        Get real-time product information and recommendations
+                      </CardDescription>
+                    </div>
                   </CardHeader>
                 </Card>
 
