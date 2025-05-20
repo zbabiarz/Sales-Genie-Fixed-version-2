@@ -37,6 +37,7 @@ interface InsurancePlan {
   eligibility_status?: "eligible" | "potential";
   isExpanded?: boolean;
   coverage_type?: string;
+  is_popular?: boolean;
 }
 
 interface InsurancePlansTableProps {
@@ -70,7 +71,9 @@ export function InsurancePlansTable({
   const [selectedCompany, setSelectedCompany] = useState(
     companyFilter || "all",
   );
-  const [companyOptions, setCompanyOptions] = useState<string[]>([]);
+  const [planFilter, setPlanFilter] = useState<"all" | "eligible" | "popular">(
+    "all",
+  );
   const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>(
     {},
   );
@@ -192,7 +195,7 @@ export function InsurancePlansTable({
       const benefitPairs = benefitsString.split(/,\s*(?=[^,]+:)/);
 
       return (
-        <div className="space-y-4">
+        <div className="bg-gray-50 rounded-md border border-gray-200 p-4">
           {benefitPairs.map((pair, index) => {
             // For each pair, split by the first colon
             const colonIndex = pair.indexOf(":");
@@ -203,20 +206,19 @@ export function InsurancePlansTable({
               const cleanKey = key.replace(/["'{}]/g, "");
 
               return (
-                <div
-                  key={index}
-                  className="mb-3 p-2 bg-gray-50 rounded-md border border-gray-100"
-                >
+                <div key={index} className="mb-3">
                   <span className="font-medium text-teal-700 block mb-1">
                     {cleanKey}
                   </span>
-                  <span className="text-gray-700 pl-2">{value}</span>
+                  <span className="text-gray-700 pl-2 block border-l-2 border-teal-100">
+                    {value}
+                  </span>
                 </div>
               );
             } else {
               // If there's no colon, just return the whole string
               return (
-                <div key={index} className="p-2 bg-gray-50 rounded-md">
+                <div key={index} className="mb-3">
                   {pair}
                 </div>
               );
@@ -227,12 +229,9 @@ export function InsurancePlansTable({
     } else {
       // If there are no colons, just split by commas
       return (
-        <div className="space-y-3">
+        <div className="bg-gray-50 rounded-md border border-gray-200 p-4">
           {benefitsString.split(", ").map((benefit, index) => (
-            <div
-              key={index}
-              className="p-2 bg-gray-50 rounded-md border border-gray-100"
-            >
+            <div key={index} className="mb-2">
               {benefit}
             </div>
           ))}
@@ -240,6 +239,9 @@ export function InsurancePlansTable({
       );
     }
   };
+
+  // State for company options
+  const [companyOptions, setCompanyOptions] = useState<string[]>([]);
 
   // Load unique company names from plans on component mount
   useEffect(() => {
@@ -253,6 +255,15 @@ export function InsurancePlansTable({
 
   const filteredPlans = plans
     .filter((plan) => {
+      // Apply plan filter (eligible or popular)
+      if (planFilter === "eligible" && plan.eligibility_status !== "eligible") {
+        return false;
+      }
+
+      if (planFilter === "popular" && !plan.is_popular) {
+        return false;
+      }
+
       // Apply category filter
       if (
         categoryFilter !== "all" &&
@@ -335,7 +346,10 @@ export function InsurancePlansTable({
   const eligiblePlans = filteredPlans.filter(
     (plan) => plan.eligibility_status === "eligible",
   );
-  const otherPlans = filteredPlans.filter((plan) => !plan.eligibility_status);
+  const popularPlans = filteredPlans.filter((plan) => plan.is_popular);
+  const otherPlans = filteredPlans.filter(
+    (plan) => !plan.eligibility_status && !plan.is_popular,
+  );
 
   if (plans.length === 0) {
     return (
@@ -372,6 +386,33 @@ export function InsurancePlansTable({
               </Button>
             )}
           </div>
+        </div>
+
+        <div className="w-full md:w-1/5 space-y-2">
+          <Label htmlFor="plan-filter">Plan Type</Label>
+          <Select
+            value={planFilter}
+            onValueChange={(value) =>
+              setPlanFilter(value as "all" | "eligible" | "popular")
+            }
+          >
+            <SelectTrigger id="plan-filter">
+              <SelectValue placeholder="All Plans" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Plans</SelectItem>
+              <SelectItem value="eligible">
+                <div className="flex items-center">
+                  <span className="mr-1">✅</span> Eligible Plans
+                </div>
+              </SelectItem>
+              <SelectItem value="popular">
+                <div className="flex items-center">
+                  <span className="mr-1">⭐</span> Most Popular
+                </div>
+              </SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         <div className="w-full md:w-1/5 space-y-2">
@@ -436,6 +477,7 @@ export function InsurancePlansTable({
             setSelectedCompany("all");
             setCategoryFilter("all");
             setCoverageTypeFilter("all");
+            setPlanFilter("all");
           }}
         >
           Reset Filters
@@ -443,7 +485,7 @@ export function InsurancePlansTable({
       </div>
 
       {/* Eligible Plans Section */}
-      {eligiblePlans.length > 0 && (
+      {eligiblePlans.length > 0 && planFilter !== "popular" && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm font-medium flex items-center">
@@ -697,6 +739,258 @@ export function InsurancePlansTable({
         </div>
       )}
 
+      {/* Popular Plans Section */}
+      {popularPlans.length > 0 && planFilter !== "eligible" && (
+        <div className="space-y-3">
+          <div className="flex items-center gap-2">
+            <div className="bg-amber-100 text-amber-800 px-2 py-1 rounded-full text-sm font-medium flex items-center">
+              <span className="mr-1">⭐</span> Most Popular
+            </div>
+            <div className="text-sm text-muted-foreground">
+              Our most frequently selected plans
+            </div>
+          </div>
+
+          <div className="rounded-md border">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-[180px]">
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("company_name")}
+                      className="flex items-center gap-1 p-0 h-auto font-medium"
+                    >
+                      Company
+                      <ArrowUpDown className="h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("product_name")}
+                      className="flex items-center gap-1 p-0 h-auto font-medium"
+                    >
+                      Product
+                      <ArrowUpDown className="h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead>
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("product_category")}
+                      className="flex items-center gap-1 p-0 h-auto font-medium"
+                    >
+                      Category
+                      <ArrowUpDown className="h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="text-right">
+                    <Button
+                      variant="ghost"
+                      onClick={() => handleSort("product_price")}
+                      className="flex items-center gap-1 p-0 h-auto font-medium ml-auto"
+                    >
+                      Price
+                      <ArrowUpDown className="h-3 w-3" />
+                    </Button>
+                  </TableHead>
+                  <TableHead className="w-[100px] text-right">
+                    Details
+                  </TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {popularPlans.map((plan) => (
+                  <>
+                    <TableRow key={plan.id} className="bg-amber-50/30">
+                      <TableCell className="font-medium">
+                        {plan.company_name}
+                      </TableCell>
+                      <TableCell>
+                        <div>
+                          <div>{plan.product_name}</div>
+                        </div>
+                      </TableCell>
+                      <TableCell>{plan.product_category}</TableCell>
+                      <TableCell className="text-right">
+                        $
+                        {plan.product_price
+                          ? plan.product_price.toFixed(2)
+                          : "0.00"}
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => togglePlanExpansion(plan.id)}
+                          className="flex items-center gap-1"
+                        >
+                          {expandedPlans[plan.id] ? (
+                            <>
+                              Hide Details
+                              <ChevronUp className="h-3 w-3 ml-1" />
+                            </>
+                          ) : (
+                            <>
+                              See More
+                              <ChevronDown className="h-3 w-3 ml-1" />
+                            </>
+                          )}
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                    {expandedPlans[plan.id] && (
+                      <TableRow className="bg-amber-50/10">
+                        <TableCell colSpan={5} className="p-4">
+                          <div className="bg-white p-4 rounded-md border border-amber-100 shadow-sm">
+                            <h4 className="font-medium text-lg mb-3">
+                              {plan.product_name} Details
+                            </h4>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                              <div>
+                                <h5 className="font-medium text-sm mb-2">
+                                  Plan Information
+                                </h5>
+                                <ul className="space-y-2 text-sm">
+                                  <li>
+                                    <span className="font-medium">
+                                      Provider:
+                                    </span>{" "}
+                                    {plan.company_name}
+                                  </li>
+                                  <li>
+                                    <span className="font-medium">
+                                      Category:
+                                    </span>{" "}
+                                    {plan.product_category}
+                                  </li>
+                                  <li>
+                                    <span className="font-medium">
+                                      Monthly Premium:
+                                    </span>{" "}
+                                    $
+                                    {plan.product_price
+                                      ? plan.product_price.toFixed(2)
+                                      : "0.00"}
+                                  </li>
+                                  <li>
+                                    <span className="font-medium">
+                                      Annual Cost:
+                                    </span>{" "}
+                                    $
+                                    {plan.product_price
+                                      ? (plan.product_price * 12).toFixed(2)
+                                      : "0.00"}
+                                  </li>
+                                </ul>
+                              </div>
+
+                              <div>
+                                <h5 className="font-medium text-sm mb-2">
+                                  Additional Benefits
+                                </h5>
+                                <ul className="list-disc pl-5 text-sm space-y-1">
+                                  <li>24/7 Customer Support</li>
+                                  <li>Online Account Management</li>
+                                  <li>Mobile App Access</li>
+                                  {plan.product_category === "Health" && (
+                                    <>
+                                      <li>Telehealth Services Included</li>
+                                      <li>Wellness Program Discounts</li>
+                                    </>
+                                  )}
+                                  {plan.product_category === "Life" && (
+                                    <>
+                                      <li>Accelerated Death Benefit</li>
+                                      <li>Waiver of Premium Option</li>
+                                    </>
+                                  )}
+                                </ul>
+                              </div>
+                            </div>
+
+                            <div className="mt-4">
+                              <h5 className="font-medium text-sm mb-2">
+                                Coverage Details
+                              </h5>
+                              {formatProductBenefits(plan.product_benefits)}
+
+                              {plan.product_category === "Health" && (
+                                <div className="mt-3">
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                    Includes Preventive Care
+                                  </span>
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full ml-2">
+                                    Network: PPO
+                                  </span>
+                                </div>
+                              )}
+
+                              {plan.product_category === "Dental" && (
+                                <div className="mt-3">
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                    Includes Orthodontics
+                                  </span>
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full ml-2">
+                                    No Waiting Period
+                                  </span>
+                                </div>
+                              )}
+
+                              {plan.product_category === "Vision" && (
+                                <div className="mt-3">
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                    Includes Designer Frames
+                                  </span>
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full ml-2">
+                                    Annual Eye Exam
+                                  </span>
+                                </div>
+                              )}
+
+                              {plan.product_category === "Life" && (
+                                <div className="mt-3">
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                                    Guaranteed Issue
+                                  </span>
+                                  <span className="text-xs font-medium bg-blue-100 text-blue-800 px-2 py-1 rounded-full ml-2">
+                                    Level Premiums
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+
+                            <div className="mt-4 flex justify-end">
+                              <Button
+                                size="sm"
+                                className="bg-teal-600 hover:bg-teal-700"
+                                onClick={() => handleSelectPlan(plan.id)}
+                                disabled={selectingPlan === plan.id}
+                              >
+                                {selectingPlan === plan.id ? (
+                                  <>
+                                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
+                                    Selecting...
+                                  </>
+                                ) : (
+                                  "Select This Plan"
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </div>
+      )}
+
       {/* Other Plans (if any without eligibility status) */}
       {otherPlans.length > 0 && (
         <div className="space-y-3">
@@ -847,9 +1141,7 @@ export function InsurancePlansTable({
                                 <h5 className="font-medium text-sm mb-2">
                                   Coverage Details
                                 </h5>
-                                <div className="text-sm mb-4 bg-white p-4 rounded-md border border-gray-200 shadow-sm">
-                                  {formatProductBenefits(plan.product_benefits)}
-                                </div>
+                                {formatProductBenefits(plan.product_benefits)}
                               </div>
                             </div>
 

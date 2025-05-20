@@ -1,0 +1,1 @@
+UPDATE insurance_plans SET company_name = 'LIFEX RESEARCH CORP' WHERE company_name = 'life x';

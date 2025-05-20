@@ -64,30 +64,73 @@ export const sendMessageToAssistant = async (
     // Prepare context as additional instructions if available
     let additionalInstructions = "";
     if (context) {
-      // Truncate each part of the context to ensure we don't exceed OpenAI's limit
-      const maxCharsPerSection = 80000; // Allocate chars per section (total limit is 256000)
+      try {
+        // Truncate each part of the context to ensure we don't exceed OpenAI's limit
+        // Total token limit is ~128K tokens which is roughly 256K chars
+        const maxCharsPerSection = 60000; // Reduced to ensure we stay well under limits
+        const maxTotalChars = 180000; // Total character limit across all sections
 
-      // Helper function to truncate JSON strings
-      const truncateJSON = (obj, maxLength) => {
-        const str = JSON.stringify(obj);
-        if (str.length <= maxLength) return str;
-        return str.substring(0, maxLength) + "... (truncated)";
-      };
+        // Helper function to truncate JSON strings
+        const truncateJSON = (obj, maxLength) => {
+          if (!obj || (Array.isArray(obj) && obj.length === 0)) return "[]";
 
-      const insurancePlansStr = truncateJSON(
-        context.insurancePlans || [],
-        maxCharsPerSection,
-      );
-      const healthConditionsStr = truncateJSON(
-        context.healthConditions || [],
-        maxCharsPerSection,
-      );
-      const medicationsStr = truncateJSON(
-        context.medications || [],
-        maxCharsPerSection,
-      );
+          try {
+            const str = JSON.stringify(obj);
+            if (str.length <= maxLength) return str;
 
-      additionalInstructions = `Here is additional context that might be helpful:\n\nInsurance Plans: ${insurancePlansStr}\n\nHealth Conditions: ${healthConditionsStr}\n\nMedications: ${medicationsStr}`;
+            // For arrays, prioritize the first few items
+            if (Array.isArray(obj) && obj.length > 0) {
+              // Calculate how many items we can include
+              const avgItemSize = str.length / obj.length;
+              const itemsToInclude = Math.max(
+                1,
+                Math.floor(maxLength / avgItemSize) - 1,
+              );
+
+              // Include the most important items (first few)
+              return (
+                JSON.stringify(obj.slice(0, itemsToInclude)) +
+                `... (${obj.length - itemsToInclude} more items truncated)`
+              );
+            }
+
+            return str.substring(0, maxLength) + "... (truncated)";
+          } catch (jsonError) {
+            console.error("Error stringifying context object:", jsonError);
+            return "[Error processing data]";
+          }
+        };
+
+        // Prioritize insurance plans as they're most relevant
+        const insurancePlansStr = truncateJSON(
+          context.insurancePlans || [],
+          maxCharsPerSection,
+        );
+
+        // Calculate remaining space for other sections
+        const remainingChars = maxTotalChars - insurancePlansStr.length;
+        const charsPerRemaining = Math.floor(remainingChars / 2);
+
+        const healthConditionsStr = truncateJSON(
+          context.healthConditions || [],
+          charsPerRemaining,
+        );
+
+        const medicationsStr = truncateJSON(
+          context.medications || [],
+          charsPerRemaining,
+        );
+
+        additionalInstructions = `Here is additional context that might be helpful:\n\nInsurance Plans: ${insurancePlansStr}\n\nHealth Conditions: ${healthConditionsStr}\n\nMedications: ${medicationsStr}`;
+
+        console.log(
+          `Context sizes - Plans: ${insurancePlansStr.length}, Health: ${healthConditionsStr.length}, Meds: ${medicationsStr.length}, Total: ${additionalInstructions.length} chars`,
+        );
+      } catch (contextError) {
+        console.error("Error processing context data:", contextError);
+        additionalInstructions =
+          "Error processing context data. Proceeding without additional context.";
+      }
     }
 
     // Run the assistant on the thread with the OpenAI-Beta header for v2
@@ -160,6 +203,49 @@ export const sendMessageToAssistant = async (
     return responseText;
   } catch (error) {
     console.error("Error sending message to OpenAI Assistant:", error);
+
+    // Detailed error logging
+    if (error instanceof Error) {
+      console.error(`Error name: ${error.name}`);
+      console.error(`Error message: ${error.message}`);
+      console.error(`Error stack: ${error.stack}`);
+
+      // Check for specific OpenAI API errors
+      if ("status" in error) {
+        console.error(`Status code: ${(error as any).status}`);
+      }
+
+      if ("code" in error) {
+        console.error(`Error code: ${(error as any).code}`);
+      }
+
+      if ("type" in error) {
+        console.error(`Error type: ${(error as any).type}`);
+      }
+
+      // Transform common errors into more helpful messages
+      if (
+        error.message.includes("rate limit") ||
+        error.message.includes("429")
+      ) {
+        throw new Error("Rate limit exceeded. Please try again in a moment.");
+      } else if (
+        error.message.includes("maximum context length") ||
+        error.message.includes("token limit")
+      ) {
+        throw new Error(
+          "The query contains too much information. Please try a shorter question.",
+        );
+      } else if (
+        error.message.includes("timeout") ||
+        error.message.includes("timed out")
+      ) {
+        throw new Error(
+          "The request took too long to process. Please try with a simpler query.",
+        );
+      }
+    }
+
     throw error;
   }
 };
