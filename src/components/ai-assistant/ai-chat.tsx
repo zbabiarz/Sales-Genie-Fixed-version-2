@@ -51,7 +51,7 @@ export function AIChat() {
           // If the table doesn't exist, log it but don't try to create it
           if (localError.message.includes("does not exist")) {
             console.log(
-              "Chat messages table doesn't exist, it should be created via migration",
+              "Chat messages table doesn't exist, it should be created via migration"
             );
           }
         }
@@ -120,18 +120,20 @@ export function AIChat() {
 
               // Store these messages in our local database for future use
               try {
-                const messagesToStore = reversedMessages.map((msg) => ({
-                  user_id: userData.user.id,
-                  thread_id: userThreadData.openai_thread_id,
-                  role: msg.role,
-                  content: msg.content,
-                }));
+                const messagesToStore = reversedMessages.map(
+                  (msg: { role: any; content: any }) => ({
+                    user_id: userData.user.id,
+                    thread_id: userThreadData.openai_thread_id,
+                    role: msg.role,
+                    content: msg.content,
+                  })
+                );
 
                 await supabase.from("chat_messages").insert(messagesToStore);
               } catch (storeError) {
                 console.error(
                   "Error storing messages in database:",
-                  storeError,
+                  storeError
                 );
               }
             }
@@ -192,7 +194,7 @@ export function AIChat() {
             // If the table doesn't exist, log it but don't try to create it
             if (insertError.message.includes("does not exist")) {
               console.log(
-                "Chat messages table doesn't exist, it should be created via migration",
+                "Chat messages table doesn't exist, it should be created via migration"
               );
             }
           } else {
@@ -326,7 +328,7 @@ export function AIChat() {
               if (userData.user && data.threadId) {
                 console.log(
                   "Storing assistant message for thread:",
-                  data.threadId,
+                  data.threadId
                 );
 
                 const { error: insertError } = await supabase
@@ -341,12 +343,12 @@ export function AIChat() {
                 if (insertError) {
                   console.error(
                     "Error inserting assistant message:",
-                    insertError,
+                    insertError
                   );
                   // If the table doesn't exist, log it but don't try to create it
                   if (insertError.message.includes("does not exist")) {
                     console.log(
-                      "Chat messages table doesn't exist, it should be created via migration",
+                      "Chat messages table doesn't exist, it should be created via migration"
                     );
                   }
                 } else {
@@ -441,7 +443,7 @@ export function AIChat() {
       insurancePlans: any[];
       healthConditions: any[];
       medications: any[];
-    },
+    }
   ): Promise<string> => {
     // Check if OpenAI API key is configured
     const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
@@ -474,14 +476,14 @@ export function AIChat() {
     ) {
       // Check for specific product category
       const categories = Array.from(
-        new Set(insurancePlans.map((plan) => plan.product_category)),
+        new Set(insurancePlans.map((plan) => plan.product_category))
       );
 
       for (const category of categories) {
         if (queryLower.includes(category.toLowerCase())) {
           const matchingPlans = insurancePlans.filter(
             (plan) =>
-              plan.product_category.toLowerCase() === category.toLowerCase(),
+              plan.product_category.toLowerCase() === category.toLowerCase()
           );
 
           if (matchingPlans.length > 0) {
@@ -499,13 +501,13 @@ export function AIChat() {
 
       // Check for specific company
       const companies = Array.from(
-        new Set(insurancePlans.map((plan) => plan.company_name)),
+        new Set(insurancePlans.map((plan) => plan.company_name))
       );
 
       for (const company of companies) {
         if (queryLower.includes(company.toLowerCase())) {
           const matchingPlans = insurancePlans.filter(
-            (plan) => plan.company_name.toLowerCase() === company.toLowerCase(),
+            (plan) => plan.company_name.toLowerCase() === company.toLowerCase()
           );
 
           if (matchingPlans.length > 0) {
@@ -559,13 +561,13 @@ export function AIChat() {
           const disqualifyingPlans = insurancePlans.filter(
             (plan) =>
               plan.disqualifying_health_conditions &&
-              plan.disqualifying_health_conditions.includes(condition.name),
+              plan.disqualifying_health_conditions.includes(condition.name)
           );
 
           const qualifyingPlans = insurancePlans.filter(
             (plan) =>
               !plan.disqualifying_health_conditions ||
-              !plan.disqualifying_health_conditions.includes(condition.name),
+              !plan.disqualifying_health_conditions.includes(condition.name)
           );
 
           let response = `For clients with ${condition.name}, here are the insurance options:\n\n`;
@@ -592,7 +594,7 @@ export function AIChat() {
         const disqualifyingPlans = insurancePlans.filter(
           (plan) =>
             plan.disqualifying_health_conditions &&
-            plan.disqualifying_health_conditions.includes(condition.name),
+            plan.disqualifying_health_conditions.includes(condition.name)
         );
 
         response += `- **${condition.name}**: Disqualifies from ${disqualifyingPlans.length} plans\n`;
@@ -613,13 +615,13 @@ export function AIChat() {
           const disqualifyingPlans = insurancePlans.filter(
             (plan) =>
               plan.disqualifying_medications &&
-              plan.disqualifying_medications.includes(medication.name),
+              plan.disqualifying_medications.includes(medication.name)
           );
 
           const qualifyingPlans = insurancePlans.filter(
             (plan) =>
               !plan.disqualifying_medications ||
-              !plan.disqualifying_medications.includes(medication.name),
+              !plan.disqualifying_medications.includes(medication.name)
           );
 
           let response = `For clients taking ${medication.name}, here are the insurance options:\n\n`;
@@ -646,7 +648,7 @@ export function AIChat() {
         const disqualifyingPlans = insurancePlans.filter(
           (plan) =>
             plan.disqualifying_medications &&
-            plan.disqualifying_medications.includes(medication.name),
+            plan.disqualifying_medications.includes(medication.name)
         );
 
         response += `- **${medication.name}**: Disqualifies from ${disqualifyingPlans.length} plans\n`;
@@ -663,7 +665,7 @@ export function AIChat() {
     ) {
       // Sort plans by price
       const sortedPlans = [...insurancePlans].sort(
-        (a, b) => a.product_price - b.product_price,
+        (a, b) => a.product_price - b.product_price
       );
 
       let response =
@@ -720,7 +722,7 @@ export function AIChat() {
       // IMPORTANT: We do NOT delete any chat messages from the database
       // This preserves the chat history for the history page
       console.log(
-        "Chat refreshed - starting new conversation while preserving history",
+        "Chat refreshed - starting new conversation while preserving history"
       );
     } catch (error) {
       console.error("Error refreshing chat:", error);

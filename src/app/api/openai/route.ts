@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import { createClient } from "../../../supabase/server";
+import { createClient } from "../../supabase/server";
 
 // Initialize the OpenAI client with the API key from environment variables
 const openai = new OpenAI({
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
     if (!assistantId) {
       return NextResponse.json(
         { error: "OpenAI Assistant ID not configured" },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
         headers: {
           "OpenAI-Beta": "assistants=v2",
         },
-      },
+      }
     );
 
     // Prepare context as additional instructions if available
@@ -61,21 +61,24 @@ export async function POST(request: Request) {
         const maxTotalChars = 180000; // Total character limit across all sections
 
         // Helper function to truncate JSON strings
-        const truncateJSON = (obj, maxLength) => {
+        const truncateJSON = (
+          obj: string | any[],
+          maxLength: number | undefined
+        ) => {
           if (!obj || (Array.isArray(obj) && obj.length === 0)) return "[]";
 
           try {
             const str = JSON.stringify(obj);
-            if (str.length <= maxLength) return str;
+            if (maxLength !== undefined && str.length <= maxLength) return str;
 
             // For arrays, prioritize the first few items
             if (Array.isArray(obj) && obj.length > 0) {
               // Calculate how many items we can include
               const avgItemSize = str.length / obj.length;
-              const itemsToInclude = Math.max(
-                1,
-                Math.floor(maxLength / avgItemSize) - 1,
-              );
+              const itemsToInclude =
+                maxLength !== undefined
+                  ? Math.max(1, Math.floor(maxLength / avgItemSize) - 1)
+                  : obj.length;
 
               // Include the most important items (first few)
               return (
@@ -94,7 +97,7 @@ export async function POST(request: Request) {
         // Prioritize insurance plans as they're most relevant
         const insurancePlansStr = truncateJSON(
           context.insurancePlans || [],
-          maxCharsPerSection,
+          maxCharsPerSection
         );
 
         // Calculate remaining space for other sections
@@ -103,18 +106,18 @@ export async function POST(request: Request) {
 
         const healthConditionsStr = truncateJSON(
           context.healthConditions || [],
-          charsPerRemaining,
+          charsPerRemaining
         );
 
         const medicationsStr = truncateJSON(
           context.medications || [],
-          charsPerRemaining,
+          charsPerRemaining
         );
 
         additionalInstructions = `Here is additional context that might be helpful:\n\nInsurance Plans: ${insurancePlansStr}\n\nHealth Conditions: ${healthConditionsStr}\n\nMedications: ${medicationsStr}`;
 
         console.log(
-          `Context sizes - Plans: ${insurancePlansStr.length}, Health: ${healthConditionsStr.length}, Meds: ${medicationsStr.length}, Total: ${additionalInstructions.length} chars`,
+          `Context sizes - Plans: ${insurancePlansStr.length}, Health: ${healthConditionsStr.length}, Meds: ${medicationsStr.length}, Total: ${additionalInstructions.length} chars`
         );
       } catch (contextError) {
         console.error("Error processing context data:", contextError);
@@ -136,7 +139,7 @@ export async function POST(request: Request) {
         headers: {
           "OpenAI-Beta": "assistants=v2",
         },
-      },
+      }
     );
 
     // Wait for the run to complete with the OpenAI-Beta header for v2
@@ -147,14 +150,14 @@ export async function POST(request: Request) {
         headers: {
           "OpenAI-Beta": "assistants=v2",
         },
-      },
+      }
     );
 
     while (runStatus.status !== "completed") {
       if (["failed", "cancelled", "expired"].includes(runStatus.status)) {
         return NextResponse.json(
           { error: `Run ended with status: ${runStatus.status}` },
-          { status: 500 },
+          { status: 500 }
         );
       }
 
@@ -167,7 +170,7 @@ export async function POST(request: Request) {
           headers: {
             "OpenAI-Beta": "assistants=v2",
           },
-        },
+        }
       );
     }
 
@@ -180,12 +183,12 @@ export async function POST(request: Request) {
 
     // Find the last assistant message
     const assistantMessages = messages.data.filter(
-      (m) => m.role === "assistant",
+      (m) => m.role === "assistant"
     );
     if (assistantMessages.length === 0) {
       return NextResponse.json(
         { error: "No response from assistant" },
-        { status: 500 },
+        { status: 500 }
       );
     }
 
@@ -291,7 +294,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       { error: clientErrorMessage },
-      { status: statusCode },
+      { status: statusCode }
     );
   }
 }

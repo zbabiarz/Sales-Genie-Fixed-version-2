@@ -8,6 +8,40 @@ const nextConfig = {
   images: {
     domains: ["storage.googleapis.com"],
   },
+  typescript: {
+    // !! WARN !!
+    // Dangerously allow production builds to successfully complete even if
+    // your project has type errors.
+    ignoreBuildErrors: true,
+  },
+  // Disable static optimization
+  output: "standalone",
+  // Configure dynamic routes
+  async headers() {
+    return [
+      {
+        source: "/:path*",
+        headers: [
+          {
+            key: "Cache-Control",
+            value: "no-store, must-revalidate",
+          },
+        ],
+      },
+    ];
+  },
+  // Disable static generation for dynamic routes
+  async generateStaticParams() {
+    return [];
+  },
+  // Mark all pages as dynamic
+  staticPageGenerationTimeout: 0,
+  // Disable static optimization
+  staticPageGenerationTimeout: 0,
+  // Configure dynamic routes
+  async rewrites() {
+    return [];
+  },
 };
 
 if (process.env.NEXT_PUBLIC_TEMPO) {

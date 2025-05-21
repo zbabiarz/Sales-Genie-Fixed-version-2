@@ -180,7 +180,7 @@ export function ClientForm() {
   };
 
   const handleCustomHealthCondition = (
-    e: React.KeyboardEvent<HTMLInputElement>,
+    e: React.KeyboardEvent<HTMLInputElement>
   ) => {
     if (e.key === "Enter") {
       e.preventDefault(); // Prevent form submission
@@ -219,7 +219,7 @@ export function ClientForm() {
     setClientData((prev) => ({
       ...prev,
       custom_health_conditions: prev.custom_health_conditions.filter(
-        (c) => c !== condition,
+        (c) => c !== condition
       ),
     }));
   };
@@ -228,7 +228,7 @@ export function ClientForm() {
     setClientData((prev) => ({
       ...prev,
       custom_medications: prev.custom_medications.filter(
-        (m) => m !== medication,
+        (m) => m !== medication
       ),
     }));
   };
@@ -259,7 +259,7 @@ export function ClientForm() {
 
   const updateDependent = (id: string, data: Partial<Dependent>) => {
     setDependents((prev) =>
-      prev.map((dep) => (dep.id === id ? { ...dep, ...data } : dep)),
+      prev.map((dep) => (dep.id === id ? { ...dep, ...data } : dep))
     );
   };
 
@@ -302,7 +302,7 @@ export function ClientForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     // Add the age to the URL for filtering
     const age = calculateAge(
-      clientData.date_of_birth || clientData._calculatedDob || "",
+      clientData.date_of_birth || clientData._calculatedDob || ""
     );
     const url = new URL(window.location.href);
     url.searchParams.set("age", age.toString());
@@ -319,7 +319,7 @@ export function ClientForm() {
       if (plansError) throw plansError;
 
       console.log(
-        `Fetched ${allPlans?.length || 0} insurance plans from database`,
+        `Fetched ${allPlans?.length || 0} insurance plans from database`
       );
 
       if (allPlans && allPlans.length > 0) {
@@ -376,7 +376,7 @@ export function ClientForm() {
           : undefined,
         weight: clientData.weight ? parseFloat(clientData.weight) : undefined,
         age: calculateAge(
-          clientData.date_of_birth || clientData._calculatedDob || "",
+          clientData.date_of_birth || clientData._calculatedDob || ""
         ),
         health_conditions: [
           ...clientData.health_conditions,
@@ -413,7 +413,7 @@ export function ClientForm() {
           "match-insurance-plans",
           {
             body: formattedData,
-          },
+          }
         );
 
         if (error) throw error;
@@ -435,7 +435,7 @@ export function ClientForm() {
 
         console.log(`Total plans found: ${allPlans.length}`);
         const reservePlans = allPlans.filter((plan) =>
-          plan.company_name.includes("Reserve National"),
+          plan.company_name.includes("Reserve National")
         );
         console.log(`Reserve National plans found: ${reservePlans.length}`);
         if (reservePlans.length > 0) {
@@ -449,7 +449,7 @@ export function ClientForm() {
             !plan.available_states.includes(clientData.state)
           ) {
             console.log(
-              `State mismatch: Client state ${clientData.state} not in plan states ${JSON.stringify(plan.available_states)}`,
+              `State mismatch: Client state ${clientData.state} not in plan states ${JSON.stringify(plan.available_states)}`
             );
             return false;
           }
@@ -466,14 +466,14 @@ export function ClientForm() {
             plan.coverage_type === "individual"
           ) {
             console.log(
-              `Filtering out individual-only plan for family: ${plan.product_name}`,
+              `Filtering out individual-only plan for family: ${plan.product_name}`
             );
             return false;
           }
 
           if (clientData.age) {
             console.log(
-              `Checking age eligibility: Client age ${clientData.age}, Plan age range ${plan.age_range || "All Ages"}`,
+              `Checking age eligibility: Client age ${clientData.age}, Plan age range ${plan.age_range || "All Ages"}`
             );
 
             // If plan has a specific age range (not "All Ages" or empty)
@@ -486,7 +486,7 @@ export function ClientForm() {
                 const minAge = parseInt(plan.age_range.replace("+", ""));
                 isEligibleAge = clientData.age >= minAge;
                 console.log(
-                  `Range ${plan.age_range}: minAge=${minAge}, result=${isEligibleAge}`,
+                  `Range ${plan.age_range}: minAge=${minAge}, result=${isEligibleAge}`
                 );
               } else if (plan.age_range.includes("-")) {
                 // For ranges like '18-29'
@@ -494,28 +494,28 @@ export function ClientForm() {
                 isEligibleAge =
                   clientData.age >= minAge && clientData.age <= maxAge;
                 console.log(
-                  `Range ${plan.age_range}: minAge=${minAge}, maxAge=${maxAge}, result=${isEligibleAge}`,
+                  `Range ${plan.age_range}: minAge=${minAge}, maxAge=${maxAge}, result=${isEligibleAge}`
                 );
               }
 
               if (!isEligibleAge) {
                 console.log(
-                  `AGE CHECK: FAILED - Age range mismatch: ${clientData.age} not in ${plan.age_range}`,
+                  `AGE CHECK: FAILED - Age range mismatch: ${clientData.age} not in ${plan.age_range}`
                 );
                 return false;
               }
 
               console.log(
-                `AGE CHECK: PASSED - Client age ${clientData.age} is within plan range ${plan.age_range}`,
+                `AGE CHECK: PASSED - Client age ${clientData.age} is within plan range ${plan.age_range}`
               );
             } else {
               console.log(
-                `AGE CHECK: PASSED - Plan has no specific age range (${plan.age_range || "All Ages"})`,
+                `AGE CHECK: PASSED - Plan has no specific age range (${plan.age_range || "All Ages"})`
               );
             }
           } else {
             console.log(
-              `Age check skipped: Client age not provided, Plan age range ${plan.age_range || "All Ages"}`,
+              `Age check skipped: Client age not provided, Plan age range ${plan.age_range || "All Ages"}`
             );
           }
 
@@ -536,10 +536,10 @@ export function ClientForm() {
                   // or if disqualifying condition contains the client condition
                   const isPartialMatch =
                     disqualifyingConditionLower.includes(
-                      clientConditionLower,
+                      clientConditionLower
                     ) ||
                     clientConditionLower.includes(
-                      disqualifyingConditionLower,
+                      disqualifyingConditionLower
                     ) ||
                     // Split by common separators and check each part
                     disqualifyingConditionLower
@@ -548,20 +548,20 @@ export function ClientForm() {
                         (part) =>
                           part === clientConditionLower ||
                           (part.length > 3 &&
-                            clientConditionLower.includes(part)),
+                            clientConditionLower.includes(part))
                       );
 
                   console.log(
-                    `Partial match check - Client: "${clientConditionLower}" vs Disqualifying: "${disqualifyingConditionLower}" - Match: ${isPartialMatch}`,
+                    `Partial match check - Client: "${clientConditionLower}" vs Disqualifying: "${disqualifyingConditionLower}" - Match: ${isPartialMatch}`
                   );
 
                   return isPartialMatch;
-                },
+                }
               );
 
               if (partialMatch) {
                 console.log(
-                  `HEALTH CONDITIONS CHECK: FAILED - Client has disqualifying condition (partial match): ${condition}`,
+                  `HEALTH CONDITIONS CHECK: FAILED - Client has disqualifying condition (partial match): ${condition}`
                 );
                 return false;
               }
@@ -585,10 +585,10 @@ export function ClientForm() {
             clientData.gender
           ) {
             console.log(
-              `\n***** PLAN BUILD CHART CHECK: ${plan.company_name} - ${plan.product_name} *****`,
+              `\n***** PLAN BUILD CHART CHECK: ${plan.company_name} - ${plan.product_name} *****`
             );
             console.log(
-              `Client weight: ${clientData.weight}, gender: ${clientData.gender}`,
+              `Client weight: ${clientData.weight}, gender: ${clientData.gender}`
             );
 
             let maxWeightInChart = 0;
@@ -607,10 +607,10 @@ export function ClientForm() {
               });
             }
             console.log(
-              `Build chart weight range: ${minWeightInChart} - ${maxWeightInChart} lbs`,
+              `Build chart weight range: ${minWeightInChart} - ${maxWeightInChart} lbs`
             );
             console.log(
-              `Build chart entries: ${plan.build_chart_jsonb?.length || 0}`,
+              `Build chart entries: ${plan.build_chart_jsonb?.length || 0}`
             );
 
             // Ensure weight and height values are properly parsed as numbers
@@ -623,33 +623,33 @@ export function ClientForm() {
               : undefined;
 
             console.log(
-              `Parsed weight: ${weightNum} lbs (raw: ${clientData.weight}, type: ${typeof weightNum})`,
+              `Parsed weight: ${weightNum} lbs (raw: ${clientData.weight}, type: ${typeof weightNum})`
             );
             console.log(
-              `Parsed height: ${heightFeet}ft ${heightInches}in (raw feet: ${clientData.height_feet}, raw inches: ${clientData.height_inches})`,
+              `Parsed height: ${heightFeet}ft ${heightInches}in (raw feet: ${clientData.height_feet}, raw inches: ${clientData.height_inches})`
             );
             console.log(
-              `Legacy height: ${legacyHeight !== undefined ? legacyHeight + " inches" : "not provided"}`,
+              `Legacy height: ${legacyHeight !== undefined ? legacyHeight + " inches" : "not provided"}`
             );
 
             // Perform a quick check against the maximum weight in the chart
             // If weight exceeds the maximum in the chart, we can immediately determine ineligibility
             if (weightNum > maxWeightInChart) {
               console.log(
-                `QUICK CHECK FAILED: Client weight ${weightNum} exceeds maximum chart weight ${maxWeightInChart}`,
+                `QUICK CHECK FAILED: Client weight ${weightNum} exceeds maximum chart weight ${maxWeightInChart}`
               );
               console.log(`***** END PLAN BUILD CHART CHECK *****\n`);
               return false;
             }
 
             console.log(
-              `Quick check - Client weight ${weightNum} vs chart range ${minWeightInChart}-${maxWeightInChart}`,
+              `Quick check - Client weight ${weightNum} vs chart range ${minWeightInChart}-${maxWeightInChart}`
             );
             console.log(
-              `Weight > Max check: ${weightNum} > ${maxWeightInChart} = ${weightNum > maxWeightInChart}`,
+              `Weight > Max check: ${weightNum} > ${maxWeightInChart} = ${weightNum > maxWeightInChart}`
             );
             console.log(
-              `Weight < Min check: ${weightNum} < ${minWeightInChart} = ${weightNum < minWeightInChart}`,
+              `Weight < Min check: ${weightNum} < ${minWeightInChart} = ${weightNum < minWeightInChart}`
             );
 
             const isEligibleBuild = checkBuildEligibility(
@@ -658,22 +658,22 @@ export function ClientForm() {
               heightFeet,
               heightInches,
               legacyHeight,
-              plan.build_chart_jsonb,
+              plan.build_chart_jsonb
             );
 
             console.log(
-              `Build eligibility result for ${plan.company_name} - ${plan.product_name}: ${isEligibleBuild}`,
+              `Build eligibility result for ${plan.company_name} - ${plan.product_name}: ${isEligibleBuild}`
             );
 
             if (!isEligibleBuild) {
               console.log(
-                `BUILD CHART CHECK: FAILED - ${plan.company_name} - ${plan.product_name}: Client weight ${weightNum} outside range for height ${heightFeet}ft ${heightInches}in`,
+                `BUILD CHART CHECK: FAILED - ${plan.company_name} - ${plan.product_name}: Client weight ${weightNum} outside range for height ${heightFeet}ft ${heightInches}in`
               );
               console.log(`***** END PLAN BUILD CHART CHECK *****\n`);
               return false;
             }
             console.log(
-              `BUILD CHART CHECK: PASSED - ${plan.company_name} - ${plan.product_name}`,
+              `BUILD CHART CHECK: PASSED - ${plan.company_name} - ${plan.product_name}`
             );
             console.log(`***** END PLAN BUILD CHART CHECK *****\n`);
           }
@@ -899,7 +899,7 @@ export function ClientForm() {
                             const dob = new Date(
                               birthYear,
                               today.getMonth(),
-                              today.getDate(),
+                              today.getDate()
                             );
                             const dobString = dob.toISOString().split("T")[0];
                             setClientData((prev) => ({
@@ -1095,7 +1095,7 @@ export function ClientForm() {
                               ×
                             </button>
                           </div>
-                        ),
+                        )
                       )}
                     </div>
                   )}
@@ -1151,7 +1151,7 @@ export function ClientForm() {
                               ×
                             </button>
                           </div>
-                        ),
+                        )
                       )}
                     </div>
                   )}
