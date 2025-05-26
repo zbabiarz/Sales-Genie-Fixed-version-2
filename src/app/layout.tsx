@@ -12,6 +12,13 @@ export const metadata: Metadata = {
   title: "Insurance Sales Genie - AI-Powered Platform for Insurance Brokers",
   description:
     "An intelligent SaaS platform that empowers insurance brokers with AI-driven tools to streamline client matching, improve sales conversations, and access instant product information.",
+  icons: {
+    icon: "https://storage.googleapis.com/msgsndr/QFjnAi2H2A9Cpxi7l0ri/media/6830c0c8a746514d41995743.png",
+    shortcut:
+      "https://storage.googleapis.com/msgsndr/QFjnAi2H2A9Cpxi7l0ri/media/6830c0c8a746514d41995743.png",
+    apple:
+      "https://storage.googleapis.com/msgsndr/QFjnAi2H2A9Cpxi7l0ri/media/6830c0c8a746514d41995743.png",
+  },
 };
 
 export default function RootLayout({

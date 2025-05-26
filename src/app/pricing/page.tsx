@@ -31,7 +31,10 @@ export default async function Pricing() {
 
         <div className="flex justify-center max-w-5xl mx-auto">
           {plans
-            ?.filter((item: any) => item.name !== "Unknown Plan")
+            ?.filter(
+              (item: any) =>
+                item.name !== "Unknown Plan" && item.name !== undefined,
+            )
             .map((item: any) => (
               <PricingCard key={item.id} item={item} user={user} />
             ))}

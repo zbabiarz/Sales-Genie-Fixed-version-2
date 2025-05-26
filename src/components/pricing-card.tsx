@@ -101,7 +101,7 @@ export default function PricingCard({
 
   const features = getFeatures(item?.name || "");
 
-  if (!item) {
+  if (!item || item.name === "Unknown Plan" || item.name === undefined) {
     return null;
   }
 

@@ -39,7 +39,7 @@
     "react-resizable-panels": "^2.1.7",
     "sharp": "^0.33.5",
     "stripe": "^17.6.0",
-    "tempo-devtools": "^2.0.102",
+    "tempo-devtools": "^2.0.106",
     "vaul": "^1.1.2"
   },
   "devDependencies": {

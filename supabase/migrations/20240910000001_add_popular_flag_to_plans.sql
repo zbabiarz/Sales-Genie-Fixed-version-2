@@ -30,6 +30,16 @@ WHERE id IN (
   SELECT id FROM insurance_plans WHERE product_category = 'Life' LIMIT 2
 );
 
+-- Mark all plans with 'VL $250 Deductible' in product_name as popular
+UPDATE insurance_plans
+SET is_popular = true
+WHERE product_name LIKE '%VL $250 Deductible%';
+
+-- Mark all plans with 'Affordable Choice' in product_name as popular
+UPDATE insurance_plans
+SET is_popular = true
+WHERE product_name LIKE '%Affordable Choice%';
+
 -- Enable realtime for this table if not already enabled
 DROP PUBLICATION IF EXISTS supabase_realtime;
 CREATE PUBLICATION supabase_realtime;

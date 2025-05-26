@@ -67,8 +67,8 @@ export const sendMessageToAssistant = async (
       try {
         // Truncate each part of the context to ensure we don't exceed OpenAI's limit
         // Total token limit is ~128K tokens which is roughly 256K chars
-        const maxCharsPerSection = 60000; // Reduced to ensure we stay well under limits
-        const maxTotalChars = 180000; // Total character limit across all sections
+        const maxCharsPerSection = 20000; // Significantly reduced to prevent context overflow
+        const maxTotalChars = 60000; // Reduced total character limit to stay well under API limits
 
         // Helper function to truncate JSON strings
         const truncateJSON = (obj, maxLength) => {
@@ -101,14 +101,20 @@ export const sendMessageToAssistant = async (
           }
         };
 
+        // Limit the total context size more aggressively
+        const maxPlansToInclude = 20;
+        const plansToUse = Array.isArray(context.insurancePlans)
+          ? context.insurancePlans.slice(0, maxPlansToInclude)
+          : [];
+
         // Prioritize insurance plans as they're most relevant
         const insurancePlansStr = truncateJSON(
-          context.insurancePlans || [],
-          maxCharsPerSection,
+          plansToUse,
+          maxCharsPerSection / 2, // Reduce size further
         );
 
         // Calculate remaining space for other sections
-        const remainingChars = maxTotalChars - insurancePlansStr.length;
+        const remainingChars = maxTotalChars / 2 - insurancePlansStr.length;
         const charsPerRemaining = Math.floor(remainingChars / 2);
 
         const healthConditionsStr = truncateJSON(
@@ -121,15 +127,15 @@ export const sendMessageToAssistant = async (
           charsPerRemaining,
         );
 
-        additionalInstructions = `Here is additional context that might be helpful:\n\nInsurance Plans: ${insurancePlansStr}\n\nHealth Conditions: ${healthConditionsStr}\n\nMedications: ${medicationsStr}`;
+        // Only provide the data without any additional instructions
+        additionalInstructions = `Insurance Plans (sample of ${plansToUse.length} plans): ${insurancePlansStr}\n\nHealth Conditions: ${healthConditionsStr}\n\nMedications: ${medicationsStr}`;
 
         console.log(
           `Context sizes - Plans: ${insurancePlansStr.length}, Health: ${healthConditionsStr.length}, Meds: ${medicationsStr.length}, Total: ${additionalInstructions.length} chars`,
         );
       } catch (contextError) {
         console.error("Error processing context data:", contextError);
-        additionalInstructions =
-          "Error processing context data. Proceeding without additional context.";
+        additionalInstructions = "";
       }
     }
 
@@ -138,9 +144,10 @@ export const sendMessageToAssistant = async (
       thread.id,
       {
         assistant_id: assistantId,
-        instructions: additionalInstructions
-          ? additionalInstructions
-          : undefined,
+        instructions:
+          additionalInstructions && additionalInstructions.length < 32000
+            ? additionalInstructions
+            : "",
       },
       {
         headers: {

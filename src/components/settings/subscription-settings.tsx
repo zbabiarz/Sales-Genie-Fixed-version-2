@@ -145,48 +145,50 @@ export function SubscriptionSettings({ user }: SubscriptionSettingsProps) {
         });
 
         // Set default available plans
-        setAvailablePlans([
-          {
-            id: "price_basic",
-            name: "Basic Plan",
-            price: 9.99,
-            interval: "month",
-            features: [
-              "Client intake & matching system",
-              "Basic AI chatbot assistant",
-              "Dashboard analytics",
-            ],
-          },
-          {
-            id: "price_pro",
-            name: "Pro Plan",
-            price: 29.99,
-            interval: "month",
-            features: [
-              "Client intake & matching system",
-              "Basic AI chatbot assistant",
-              "Dashboard analytics",
-              "Sales call analyzer",
-              "Advanced AI recommendations",
-            ],
-            popular: true,
-          },
-          {
-            id: "price_enterprise",
-            name: "Enterprise Plan",
-            price: 99.99,
-            interval: "month",
-            features: [
-              "Client intake & matching system",
-              "Basic AI chatbot assistant",
-              "Dashboard analytics",
-              "Sales call analyzer",
-              "Advanced AI recommendations",
-              "Custom integrations",
-              "Dedicated account manager",
-            ],
-          },
-        ]);
+        setAvailablePlans(
+          [
+            {
+              id: "price_basic",
+              name: "Basic Plan",
+              price: 9.99,
+              interval: "month",
+              features: [
+                "Client intake & matching system",
+                "Basic AI chatbot assistant",
+                "Dashboard analytics",
+              ],
+            },
+            {
+              id: "price_pro",
+              name: "Pro Plan",
+              price: 29.99,
+              interval: "month",
+              features: [
+                "Client intake & matching system",
+                "Basic AI chatbot assistant",
+                "Dashboard analytics",
+                "Sales call analyzer",
+                "Advanced AI recommendations",
+              ],
+              popular: true,
+            },
+            {
+              id: "price_enterprise",
+              name: "Enterprise Plan",
+              price: 99.99,
+              interval: "month",
+              features: [
+                "Client intake & matching system",
+                "Basic AI chatbot assistant",
+                "Dashboard analytics",
+                "Sales call analyzer",
+                "Advanced AI recommendations",
+                "Custom integrations",
+                "Dedicated account manager",
+              ],
+            },
+          ].filter((plan) => plan.name !== "Unknown Plan"),
+        );
       } finally {
         setIsLoading(false);
       }

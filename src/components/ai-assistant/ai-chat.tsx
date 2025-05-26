@@ -8,7 +8,6 @@ import { Send, User, Loader2, RefreshCw, History } from "lucide-react";
 import Link from "next/link";
 import { RobotIcon } from "@/components/robot-icon";
 import { createClient } from "../../../supabase/client";
-import { cleanResponse } from "@/utils/format-utils";
 
 type Message = {
   role: "user" | "assistant";
@@ -16,13 +15,7 @@ type Message = {
 };
 
 export function AIChat() {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      role: "assistant",
-      content:
-        "Hello! I'm your Insurance Sales Genie assistant. How can I help you today?",
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
@@ -97,23 +90,13 @@ export function AIChat() {
           if (response.ok) {
             const data = await response.json();
             if (data.messages && data.messages.length > 0) {
-              // Format messages for display
+              // Format messages for display without cleaning
               const formattedMessages = data.messages.map((msg: any) => ({
                 role: msg.role as "user" | "assistant",
-                content:
-                  msg.role === "assistant"
-                    ? cleanResponse(msg.content[0]?.text?.value || "")
-                    : msg.content[0]?.text?.value || "",
+                content: msg.content[0]?.text?.value || "",
               }));
 
-              // Add welcome message if there are no messages yet
-              if (formattedMessages.length === 0) {
-                formattedMessages.unshift({
-                  role: "assistant",
-                  content:
-                    "Hello! I'm your Insurance Sales Genie assistant. How can I help you today?",
-                });
-              }
+              // Let the OpenAI Assistant handle all messages
 
               const reversedMessages = formattedMessages.reverse();
               setMessages(reversedMessages);
@@ -298,8 +281,8 @@ export function AIChat() {
               .eq("id", userData.user.id);
           }
 
-          // Replace the temporary thinking message with the cleaned response
-          const cleanedResponse = cleanResponse(data.response);
+          // Replace the temporary thinking message with the raw response
+          // No cleaning or modification of the response
           setMessages((prev) => {
             const newMessages = [...prev];
             if (
@@ -308,11 +291,11 @@ export function AIChat() {
             ) {
               newMessages[newMessages.length - 1] = {
                 role: "assistant",
-                content: cleanedResponse,
+                content: data.response,
               };
               return newMessages;
             } else {
-              return [...prev, { role: "assistant", content: cleanedResponse }];
+              return [...prev, { role: "assistant", content: data.response }];
             }
           });
 
@@ -335,7 +318,7 @@ export function AIChat() {
                     user_id: userData.user.id,
                     thread_id: data.threadId,
                     role: "assistant",
-                    content: cleanedResponse,
+                    content: data.response,
                   });
 
                 if (insertError) {
@@ -358,330 +341,51 @@ export function AIChat() {
             }
           }
         } else {
-          // If API call fails, fall back to rule-based approach
-          const response = await processQuery(userMessage.content, context);
-          // Replace the temporary thinking message with the cleaned response
+          // If API call fails, remove the thinking message
           setMessages((prev) => {
             const newMessages = [...prev];
             if (
               newMessages.length > 0 &&
-              newMessages[newMessages.length - 1].role === "assistant"
+              newMessages[newMessages.length - 1].role === "assistant" &&
+              newMessages[newMessages.length - 1].content === ""
             ) {
-              newMessages[newMessages.length - 1] = {
-                role: "assistant",
-                content: cleanResponse(response),
-              };
-              return newMessages;
-            } else {
-              return [
-                ...prev,
-                { role: "assistant", content: cleanResponse(response) },
-              ];
+              newMessages.pop(); // Remove the empty thinking message
             }
+            return newMessages;
           });
         }
       } catch (apiError) {
         console.error("Error calling OpenAI API:", apiError);
-        // Fall back to rule-based approach
-        const response = await processQuery(userMessage.content, context);
-        // Replace the temporary thinking message with the cleaned response
+        // Remove the thinking message on error
         setMessages((prev) => {
           const newMessages = [...prev];
           if (
             newMessages.length > 0 &&
-            newMessages[newMessages.length - 1].role === "assistant"
+            newMessages[newMessages.length - 1].role === "assistant" &&
+            newMessages[newMessages.length - 1].content === ""
           ) {
-            newMessages[newMessages.length - 1] = {
-              role: "assistant",
-              content: cleanResponse(response),
-            };
-            return newMessages;
-          } else {
-            return [
-              ...prev,
-              { role: "assistant", content: cleanResponse(response) },
-            ];
+            newMessages.pop(); // Remove the empty thinking message
           }
+          return newMessages;
         });
       }
     } catch (error) {
       console.error("Error processing query:", error);
-      // Replace the temporary thinking message with the error message
+      // Remove the thinking message on error
       setMessages((prev) => {
         const newMessages = [...prev];
         if (
           newMessages.length > 0 &&
-          newMessages[newMessages.length - 1].role === "assistant"
+          newMessages[newMessages.length - 1].role === "assistant" &&
+          newMessages[newMessages.length - 1].content === ""
         ) {
-          newMessages[newMessages.length - 1] = {
-            role: "assistant",
-            content:
-              "I'm sorry, I encountered an error while processing your request. Please try again.",
-          };
-          return newMessages;
-        } else {
-          return [
-            ...prev,
-            {
-              role: "assistant",
-              content:
-                "I'm sorry, I encountered an error while processing your request. Please try again.",
-            },
-          ];
+          newMessages.pop(); // Remove the empty thinking message
         }
+        return newMessages;
       });
     } finally {
       setIsLoading(false);
     }
-  };
-
-  const processQuery = async (
-    query: string,
-    data: {
-      insurancePlans: any[];
-      healthConditions: any[];
-      medications: any[];
-    },
-  ): Promise<string> => {
-    // Check if OpenAI API key is configured
-    const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
-    const openaiAssistantId = process.env.NEXT_PUBLIC_OPENAI_ASSISTANT_ID;
-
-    // If OpenAI is configured, use it for processing
-    if (openaiApiKey && openaiAssistantId && typeof window !== "undefined") {
-      try {
-        // Import the OpenAI client and functions
-        const { sendMessageToAssistant } = await import("@/lib/openai");
-
-        // Use the OpenAI API with the assistant
-        const response = await sendMessageToAssistant(query, data);
-        return response;
-      } catch (error) {
-        console.error("Error calling OpenAI API:", error);
-        // Fall back to rule-based approach if OpenAI call fails
-      }
-    }
-
-    // Fallback to rule-based approach if OpenAI is not configured or call failed
-    const { insurancePlans, healthConditions, medications } = data;
-    const queryLower = query.toLowerCase();
-
-    // Check for product information queries
-    if (
-      queryLower.includes("product") ||
-      queryLower.includes("plan") ||
-      queryLower.includes("insurance")
-    ) {
-      // Check for specific product category
-      const categories = Array.from(
-        new Set(insurancePlans.map((plan) => plan.product_category)),
-      );
-
-      for (const category of categories) {
-        if (queryLower.includes(category.toLowerCase())) {
-          const matchingPlans = insurancePlans.filter(
-            (plan) =>
-              plan.product_category.toLowerCase() === category.toLowerCase(),
-          );
-
-          if (matchingPlans.length > 0) {
-            let response = `Here are the ${category} insurance plans available:\n\n`;
-
-            matchingPlans.forEach((plan) => {
-              response += `- **${plan.company_name} - ${plan.product_name}**: ${plan.product_price.toFixed(2)}/month\n`;
-              response += `  ${plan.product_benefits}\n\n`;
-            });
-
-            return response;
-          }
-        }
-      }
-
-      // Check for specific company
-      const companies = Array.from(
-        new Set(insurancePlans.map((plan) => plan.company_name)),
-      );
-
-      for (const company of companies) {
-        if (queryLower.includes(company.toLowerCase())) {
-          const matchingPlans = insurancePlans.filter(
-            (plan) => plan.company_name.toLowerCase() === company.toLowerCase(),
-          );
-
-          if (matchingPlans.length > 0) {
-            let response = `Here are the insurance plans offered by ${company}:\n\n`;
-
-            matchingPlans.forEach((plan) => {
-              response += `- **${plan.product_name}** (${plan.product_category}): ${plan.product_price.toFixed(2)}/month\n`;
-              response += `  ${plan.product_benefits}\n\n`;
-            });
-
-            return response;
-          }
-        }
-      }
-
-      // General product information
-      let response = "Here are the insurance plans we offer:\n\n";
-
-      // Group by category
-      const plansByCategory: Record<string, any[]> = {};
-
-      insurancePlans.forEach((plan) => {
-        if (!plansByCategory[plan.product_category]) {
-          plansByCategory[plan.product_category] = [];
-        }
-        plansByCategory[plan.product_category].push(plan);
-      });
-
-      for (const [category, plans] of Object.entries(plansByCategory)) {
-        response += `**${category} Plans:**\n`;
-
-        plans.forEach((plan) => {
-          response += `- ${plan.company_name} - ${plan.product_name}: ${plan.product_price.toFixed(2)}/month\n`;
-        });
-
-        response += "\n";
-      }
-
-      return response;
-    }
-
-    // Check for health condition related queries
-    if (
-      queryLower.includes("health") ||
-      queryLower.includes("condition") ||
-      queryLower.includes("medical")
-    ) {
-      // Check for specific health condition
-      for (const condition of healthConditions) {
-        if (queryLower.includes(condition.name.toLowerCase())) {
-          const disqualifyingPlans = insurancePlans.filter(
-            (plan) =>
-              plan.disqualifying_health_conditions &&
-              plan.disqualifying_health_conditions.includes(condition.name),
-          );
-
-          const qualifyingPlans = insurancePlans.filter(
-            (plan) =>
-              !plan.disqualifying_health_conditions ||
-              !plan.disqualifying_health_conditions.includes(condition.name),
-          );
-
-          let response = `For clients with ${condition.name}, here are the insurance options:\n\n`;
-
-          if (qualifyingPlans.length > 0) {
-            response += "**Available Plans:**\n";
-            qualifyingPlans.forEach((plan) => {
-              response += `- ${plan.company_name} - ${plan.product_name} (${plan.product_category}): ${plan.product_price.toFixed(2)}/month\n`;
-            });
-          } else {
-            response +=
-              "There are no plans available for this health condition.\n";
-          }
-
-          return response;
-        }
-      }
-
-      // General health condition information
-      let response =
-        "Here are the health conditions that may affect insurance eligibility:\n\n";
-
-      healthConditions.forEach((condition) => {
-        const disqualifyingPlans = insurancePlans.filter(
-          (plan) =>
-            plan.disqualifying_health_conditions &&
-            plan.disqualifying_health_conditions.includes(condition.name),
-        );
-
-        response += `- **${condition.name}**: Disqualifies from ${disqualifyingPlans.length} plans\n`;
-      });
-
-      return response;
-    }
-
-    // Check for medication related queries
-    if (
-      queryLower.includes("medication") ||
-      queryLower.includes("drug") ||
-      queryLower.includes("medicine")
-    ) {
-      // Check for specific medication
-      for (const medication of medications) {
-        if (queryLower.includes(medication.name.toLowerCase())) {
-          const disqualifyingPlans = insurancePlans.filter(
-            (plan) =>
-              plan.disqualifying_medications &&
-              plan.disqualifying_medications.includes(medication.name),
-          );
-
-          const qualifyingPlans = insurancePlans.filter(
-            (plan) =>
-              !plan.disqualifying_medications ||
-              !plan.disqualifying_medications.includes(medication.name),
-          );
-
-          let response = `For clients taking ${medication.name}, here are the insurance options:\n\n`;
-
-          if (qualifyingPlans.length > 0) {
-            response += "**Available Plans:**\n";
-            qualifyingPlans.forEach((plan) => {
-              response += `- ${plan.company_name} - ${plan.product_name} (${plan.product_category}): ${plan.product_price.toFixed(2)}/month\n`;
-            });
-          } else {
-            response +=
-              "There are no plans available for clients taking this medication.\n";
-          }
-
-          return response;
-        }
-      }
-
-      // General medication information
-      let response =
-        "Here are the medications that may affect insurance eligibility:\n\n";
-
-      medications.forEach((medication) => {
-        const disqualifyingPlans = insurancePlans.filter(
-          (plan) =>
-            plan.disqualifying_medications &&
-            plan.disqualifying_medications.includes(medication.name),
-        );
-
-        response += `- **${medication.name}**: Disqualifies from ${disqualifyingPlans.length} plans\n`;
-      });
-
-      return response;
-    }
-
-    // Check for price/cost related queries
-    if (
-      queryLower.includes("price") ||
-      queryLower.includes("cost") ||
-      queryLower.includes("affordable")
-    ) {
-      // Sort plans by price
-      const sortedPlans = [...insurancePlans].sort(
-        (a, b) => a.product_price - b.product_price,
-      );
-
-      let response =
-        "Here are our insurance plans sorted by price (lowest to highest):\n\n";
-
-      sortedPlans.forEach((plan) => {
-        response += `- **${plan.company_name} - ${plan.product_name}** (${plan.product_category}): ${plan.product_price.toFixed(2)}/month\n`;
-      });
-
-      return response;
-    }
-
-    // Default response for other queries
-    if (queryLower.includes("america") && queryLower.includes("choice")) {
-      return "For America's Choice health insurance, a 32-year old male would typically pay between $350-$450 per month for coverage. This plan includes comprehensive health benefits with a $2,500 deductible, prescription drug coverage, and access to a wide network of providers. Would you like more specific information about coverage details?";
-    }
-
-    return "I can help you with information about our insurance products, health conditions, medications, and pricing. Please ask me about specific insurance plans, health conditions, or how to find the right coverage for your needs.";
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
@@ -698,13 +402,7 @@ export function AIChat() {
       if (!userData.user) return;
 
       // Clear local messages (only in the current UI)
-      setMessages([
-        {
-          role: "assistant",
-          content:
-            "Hello! I'm your Insurance Sales Genie assistant. How can I help you today?",
-        },
-      ]);
+      setMessages([]);
 
       // Create a new thread by setting threadId to null
       // This will cause a new thread to be created on the next message
@@ -735,7 +433,7 @@ export function AIChat() {
         <div className="flex justify-between items-center">
           <CardTitle className="flex items-center gap-2">
             <RobotIcon className="h-6 w-6" />
-            AI Insurance Genie
+            AI Assistant
           </CardTitle>
           <div className="flex gap-2">
             <Link href="/dashboard/chat-history">

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-import { createClient } from "../../../supabase/server";
+import { createClient } from "@/app/supabase/server";
 
 // Initialize the OpenAI client with the API key from environment variables
 const openai = new OpenAI({
@@ -91,14 +91,20 @@ export async function POST(request: Request) {
           }
         };
 
+        // Limit the total context size more aggressively
+        const maxPlansToInclude = 15;
+        const plansToUse = Array.isArray(context.insurancePlans)
+          ? context.insurancePlans.slice(0, maxPlansToInclude)
+          : [];
+
         // Prioritize insurance plans as they're most relevant
         const insurancePlansStr = truncateJSON(
-          context.insurancePlans || [],
-          maxCharsPerSection,
+          plansToUse,
+          maxCharsPerSection / 3, // Reduce size further
         );
 
         // Calculate remaining space for other sections
-        const remainingChars = maxTotalChars - insurancePlansStr.length;
+        const remainingChars = maxTotalChars / 3 - insurancePlansStr.length;
         const charsPerRemaining = Math.floor(remainingChars / 2);
 
         const healthConditionsStr = truncateJSON(
@@ -111,7 +117,7 @@ export async function POST(request: Request) {
           charsPerRemaining,
         );
 
-        additionalInstructions = `Here is additional context that might be helpful:\n\nInsurance Plans: ${insurancePlansStr}\n\nHealth Conditions: ${healthConditionsStr}\n\nMedications: ${medicationsStr}`;
+        additionalInstructions = `Insurance Plans (sample of ${plansToUse.length} plans): ${insurancePlansStr}\n\nHealth Conditions: ${healthConditionsStr}\n\nMedications: ${medicationsStr}`;
 
         console.log(
           `Context sizes - Plans: ${insurancePlansStr.length}, Health: ${healthConditionsStr.length}, Meds: ${medicationsStr.length}, Total: ${additionalInstructions.length} chars`,
@@ -128,9 +134,10 @@ export async function POST(request: Request) {
       currentThreadId,
       {
         assistant_id: assistantId,
-        instructions: additionalInstructions
-          ? additionalInstructions
-          : undefined,
+        instructions:
+          additionalInstructions && additionalInstructions.length < 32000
+            ? additionalInstructions
+            : "",
       },
       {
         headers: {
@@ -198,6 +205,8 @@ export async function POST(request: Request) {
         responseText += content.text.value;
       }
     }
+
+    // Return the raw response without any modification
 
     // If this is a new thread and we have a userId, store the thread ID in the database
     if (isNewThread && userId) {

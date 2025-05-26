@@ -71,8 +71,8 @@ export function InsurancePlansTable({
   const [selectedCompany, setSelectedCompany] = useState(
     companyFilter || "all",
   );
-  const [planFilter, setPlanFilter] = useState<"all" | "eligible" | "popular">(
-    "all",
+  const [planFilter, setPlanFilter] = useState<"eligible" | "popular">(
+    "popular",
   );
   const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>(
     {},
@@ -256,7 +256,8 @@ export function InsurancePlansTable({
   const filteredPlans = plans
     .filter((plan) => {
       // Apply plan filter (eligible or popular)
-      if (planFilter === "eligible" && plan.eligibility_status !== "eligible") {
+      // Both filters now only show eligible plans
+      if (plan.eligibility_status !== "eligible") {
         return false;
       }
 
@@ -400,15 +401,14 @@ export function InsurancePlansTable({
               <SelectValue placeholder="All Plans" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="all">All Plans</SelectItem>
               <SelectItem value="eligible">
                 <div className="flex items-center">
-                  <span className="mr-1">✅</span> Eligible Plans
+                  <span className="mr-1">✅</span> All Eligible
                 </div>
               </SelectItem>
               <SelectItem value="popular">
                 <div className="flex items-center">
-                  <span className="mr-1">⭐</span> Most Popular
+                  <span className="mr-1">⭐</span> Most Popular Eligible
                 </div>
               </SelectItem>
             </SelectContent>
@@ -477,7 +477,7 @@ export function InsurancePlansTable({
             setSelectedCompany("all");
             setCategoryFilter("all");
             setCoverageTypeFilter("all");
-            setPlanFilter("all");
+            setPlanFilter("eligible");
           }}
         >
           Reset Filters
@@ -485,11 +485,11 @@ export function InsurancePlansTable({
       </div>
 
       {/* Eligible Plans Section */}
-      {eligiblePlans.length > 0 && planFilter !== "popular" && (
+      {eligiblePlans.length > 0 && planFilter === "eligible" && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <div className="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm font-medium flex items-center">
-              <span className="mr-1">✅</span> Eligible Plans
+              <span className="mr-1">✅</span> All Eligible
             </div>
             <div className="text-sm text-muted-foreground">
               Plans you qualify for based on your information
@@ -740,7 +740,7 @@ export function InsurancePlansTable({
       )}
 
       {/* Popular Plans Section */}
-      {popularPlans.length > 0 && planFilter !== "eligible" && (
+      {popularPlans.length > 0 && planFilter === "popular" && (
         <div className="space-y-3">
           <div className="flex items-center gap-2">
             <div className="bg-amber-100 text-amber-800 px-2 py-1 rounded-full text-sm font-medium flex items-center">
