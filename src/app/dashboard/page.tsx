@@ -22,13 +22,22 @@ import { AIChat } from "@/components/ai-assistant/ai-chat";
 import { CallAnalyzerPage } from "@/components/sales-call/call-analyzer-page";
 import { ClientManagement } from "@/components/client-management/client-management";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, Suspense } from "react";
+
+// Create a client component for search params
+function SearchParamsWrapper({
+  children,
+}: {
+  children: (tabParam: string | null) => React.ReactNode;
+}) {
+  const searchParams = useSearchParams();
+  const tabParam = searchParams.get("tab");
+  return <>{children(tabParam)}</>;
+}
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("ai");
-  const searchParams = useSearchParams();
-  const tabParam = searchParams.get("tab");
 
   // Create refs for each section to enable scrolling
   const aiSectionRef = useRef<HTMLDivElement>(null);
@@ -36,11 +45,6 @@ export default function Dashboard() {
   const callsSectionRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    // Set active tab from URL parameter if available
-    if (tabParam && ["ai", "intake", "calls", "clients"].includes(tabParam)) {
-      setActiveTab(tabParam);
-    }
-
     // Get user data
     const fetchUser = async () => {
       const supabase = createClient();
@@ -53,7 +57,7 @@ export default function Dashboard() {
     };
 
     fetchUser();
-  }, [tabParam]);
+  }, []);
 
   if (!user) {
     return (
@@ -83,130 +87,150 @@ export default function Dashboard() {
           <DashboardStats />
 
           {/* Main Content Tabs */}
-          <Tabs
-            value={activeTab}
-            onValueChange={setActiveTab}
-            className="w-full"
-          >
-            <TabsList className="grid w-full grid-cols-4 mb-8 overflow-x-auto">
-              <TabsTrigger
-                value="ai"
-                className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
-              >
-                <RobotIcon className="h-5 w-5 md:h-4 md:w-4 text-teal-600" />
-                <span className="text-[10px] md:text-sm mt-1 md:mt-0 block font-medium">
-                  AI Chat
-                </span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="intake"
-                className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
-              >
-                <ClipboardCheck className="h-5 w-5 md:h-4 md:w-4 text-teal-600" />
-                <span className="text-[10px] md:text-sm mt-1 md:mt-0 block font-medium">
-                  Intake
-                </span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="calls"
-                className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
-              >
-                <MessageSquareText className="h-5 w-5 md:h-4 md:w-4 text-teal-600" />
-                <span className="text-[10px] md:text-sm mt-1 md:mt-0 block font-medium">
-                  Calls
-                </span>
-              </TabsTrigger>
-              <TabsTrigger
-                value="clients"
-                className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
-              >
-                <Users className="h-5 w-5 md:h-4 md:w-4 text-teal-600" />
-                <span className="text-[10px] md:text-sm mt-1 md:mt-0 block font-medium">
-                  Clients
-                </span>
-              </TabsTrigger>
-            </TabsList>
+          <Suspense fallback={<div>Loading...</div>}>
+            <SearchParamsWrapper>
+              {(tabParam) => {
+                useEffect(() => {
+                  if (
+                    tabParam &&
+                    ["ai", "intake", "calls", "clients"].includes(tabParam)
+                  ) {
+                    setActiveTab(tabParam);
+                  }
+                }, [tabParam]);
 
-            <TabsContent value="ai">
-              <div ref={aiSectionRef} className="space-y-4">
-                <Card>
-                  <CardHeader className="flex flex-row items-center gap-2">
-                    <RobotIcon className="h-6 w-6 text-teal-600" />
-                    <div>
-                      <CardTitle>AI Chatbot Assistant</CardTitle>
-                      <CardDescription>
-                        Get real-time product information and recommendations
-                      </CardDescription>
-                    </div>
-                  </CardHeader>
-                </Card>
+                return (
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={setActiveTab}
+                    className="w-full"
+                  >
+                    <TabsList className="grid w-full grid-cols-4 mb-8 overflow-x-auto">
+                      <TabsTrigger
+                        value="ai"
+                        className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
+                      >
+                        <RobotIcon className="h-5 w-5 md:h-4 md:w-4 text-teal-600" />
+                        <span className="text-[10px] md:text-sm mt-1 md:mt-0 block font-medium">
+                          AI Chat
+                        </span>
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="intake"
+                        className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
+                      >
+                        <ClipboardCheck className="h-5 w-5 md:h-4 md:w-4 text-teal-600" />
+                        <span className="text-[10px] md:text-sm mt-1 md:mt-0 block font-medium">
+                          Intake
+                        </span>
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="calls"
+                        className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
+                      >
+                        <MessageSquareText className="h-5 w-5 md:h-4 md:w-4 text-teal-600" />
+                        <span className="text-[10px] md:text-sm mt-1 md:mt-0 block font-medium">
+                          Calls
+                        </span>
+                      </TabsTrigger>
+                      <TabsTrigger
+                        value="clients"
+                        className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
+                      >
+                        <Users className="h-5 w-5 md:h-4 md:w-4 text-teal-600" />
+                        <span className="text-[10px] md:text-sm mt-1 md:mt-0 block font-medium">
+                          Clients
+                        </span>
+                      </TabsTrigger>
+                    </TabsList>
 
-                {/* Info Banner */}
-                <div className="w-full bg-green-100 border border-green-300 rounded-lg p-4 text-green-800">
-                  <p className="text-center font-medium">
-                    Please make sure you include the company name, product name,
-                    and product type in all each of your questions and prompts
-                    to get the most accurate responses.
-                  </p>
-                </div>
+                    <TabsContent value="ai">
+                      <div ref={aiSectionRef} className="space-y-4">
+                        <Card>
+                          <CardHeader className="flex flex-row items-center gap-2">
+                            <RobotIcon className="h-6 w-6 text-teal-600" />
+                            <div>
+                              <CardTitle>AI Chatbot Assistant</CardTitle>
+                              <CardDescription>
+                                Get real-time product information and
+                                recommendations
+                              </CardDescription>
+                            </div>
+                          </CardHeader>
+                        </Card>
 
-                {/* AI Chat Component */}
-                <div className="h-[500px]">
-                  <AIChat />
-                </div>
-              </div>
-            </TabsContent>
+                        {/* Info Banner */}
+                        <div className="w-full bg-green-100 border border-green-300 rounded-lg p-4 text-green-800">
+                          <p className="text-center font-medium">
+                            Please make sure you include the company name,
+                            product name, and product type in all each of your
+                            questions and prompts to get the most accurate
+                            responses.
+                          </p>
+                        </div>
 
-            <TabsContent value="intake">
-              <div ref={intakeSectionRef} className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Client Intake & Matching</CardTitle>
-                    <CardDescription>
-                      Add new clients and match them with insurance plans
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
+                        {/* AI Chat Component */}
+                        <div className="h-[500px]">
+                          <AIChat />
+                        </div>
+                      </div>
+                    </TabsContent>
 
-                {/* Client Intake Form */}
-                <div>
-                  <ClientIntakePage />
-                </div>
-              </div>
-            </TabsContent>
+                    <TabsContent value="intake">
+                      <div ref={intakeSectionRef} className="space-y-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Client Intake & Matching</CardTitle>
+                            <CardDescription>
+                              Add new clients and match them with insurance
+                              plans
+                            </CardDescription>
+                          </CardHeader>
+                        </Card>
 
-            <TabsContent value="calls">
-              <div ref={callsSectionRef} className="space-y-4">
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Sales Call Analyzer</CardTitle>
-                    <CardDescription>
-                      Upload and analyze your sales calls
-                    </CardDescription>
-                  </CardHeader>
-                </Card>
+                        {/* Client Intake Form */}
+                        <div>
+                          <ClientIntakePage />
+                        </div>
+                      </div>
+                    </TabsContent>
 
-                {/* Sales Call Analyzer Component */}
-                <div>
-                  <CallAnalyzerPage />
-                </div>
-              </div>
-            </TabsContent>
+                    <TabsContent value="calls">
+                      <div ref={callsSectionRef} className="space-y-4">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>Sales Call Analyzer</CardTitle>
+                            <CardDescription>
+                              Upload and analyze your sales calls
+                            </CardDescription>
+                          </CardHeader>
+                        </Card>
 
-            <TabsContent value="clients">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Client Management</CardTitle>
-                  <CardDescription>
-                    View and manage your insurance clients
-                  </CardDescription>
-                </CardHeader>
-                <CardContent>
-                  <ClientManagement />
-                </CardContent>
-              </Card>
-            </TabsContent>
-          </Tabs>
+                        {/* Sales Call Analyzer Component */}
+                        <div>
+                          <CallAnalyzerPage />
+                        </div>
+                      </div>
+                    </TabsContent>
+
+                    <TabsContent value="clients">
+                      <Card>
+                        <CardHeader>
+                          <CardTitle>Client Management</CardTitle>
+                          <CardDescription>
+                            Manage your clients and their information
+                          </CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                          <ClientManagement />
+                        </CardContent>
+                      </Card>
+                    </TabsContent>
+                  </Tabs>
+                );
+              }}
+            </SearchParamsWrapper>
+          </Suspense>
         </div>
       </main>
     </SubscriptionCheck>

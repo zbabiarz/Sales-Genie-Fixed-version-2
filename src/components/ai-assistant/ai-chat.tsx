@@ -45,7 +45,7 @@ export function AIChat() {
           // If the table doesn't exist, log it but don't try to create it
           if (localError.message.includes("does not exist")) {
             console.log(
-              "Chat messages table doesn't exist, it should be created via migration",
+              "Chat messages table doesn't exist, it should be created via migration"
             );
           }
         }
@@ -104,18 +104,20 @@ export function AIChat() {
 
               // Store these messages in our local database for future use
               try {
-                const messagesToStore = reversedMessages.map((msg) => ({
-                  user_id: userData.user.id,
-                  thread_id: userThreadData.openai_thread_id,
-                  role: msg.role,
-                  content: msg.content,
-                }));
+                const messagesToStore = reversedMessages.map(
+                  (msg: { role: any; content: any }) => ({
+                    user_id: userData.user.id,
+                    thread_id: userThreadData.openai_thread_id,
+                    role: msg.role,
+                    content: msg.content,
+                  })
+                );
 
                 await supabase.from("chat_messages").insert(messagesToStore);
               } catch (storeError) {
                 console.error(
                   "Error storing messages in database:",
-                  storeError,
+                  storeError
                 );
               }
             }
@@ -176,7 +178,7 @@ export function AIChat() {
             // If the table doesn't exist, log it but don't try to create it
             if (insertError.message.includes("does not exist")) {
               console.log(
-                "Chat messages table doesn't exist, it should be created via migration",
+                "Chat messages table doesn't exist, it should be created via migration"
               );
             }
           } else {
@@ -310,7 +312,7 @@ export function AIChat() {
               if (userData.user && data.threadId) {
                 console.log(
                   "Storing assistant message for thread:",
-                  data.threadId,
+                  data.threadId
                 );
 
                 const { error: insertError } = await supabase
@@ -325,12 +327,12 @@ export function AIChat() {
                 if (insertError) {
                   console.error(
                     "Error inserting assistant message:",
-                    insertError,
+                    insertError
                   );
                   // If the table doesn't exist, log it but don't try to create it
                   if (insertError.message.includes("does not exist")) {
                     console.log(
-                      "Chat messages table doesn't exist, it should be created via migration",
+                      "Chat messages table doesn't exist, it should be created via migration"
                     );
                   }
                 } else {
@@ -389,6 +391,258 @@ export function AIChat() {
     }
   };
 
+<<<<<<< HEAD
+=======
+  const processQuery = async (
+    query: string,
+    data: {
+      insurancePlans: any[];
+      healthConditions: any[];
+      medications: any[];
+    }
+  ): Promise<string> => {
+    // Check if OpenAI API key is configured
+    const openaiApiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    const openaiAssistantId = process.env.NEXT_PUBLIC_OPENAI_ASSISTANT_ID;
+
+    // If OpenAI is configured, use it for processing
+    if (openaiApiKey && openaiAssistantId && typeof window !== "undefined") {
+      try {
+        // Import the OpenAI client and functions
+        const { sendMessageToAssistant } = await import("@/lib/openai");
+
+        // Use the OpenAI API with the assistant
+        const response = await sendMessageToAssistant(query, data);
+        return response;
+      } catch (error) {
+        console.error("Error calling OpenAI API:", error);
+        // Fall back to rule-based approach if OpenAI call fails
+      }
+    }
+
+    // Fallback to rule-based approach if OpenAI is not configured or call failed
+    const { insurancePlans, healthConditions, medications } = data;
+    const queryLower = query.toLowerCase();
+
+    // Check for product information queries
+    if (
+      queryLower.includes("product") ||
+      queryLower.includes("plan") ||
+      queryLower.includes("insurance")
+    ) {
+      // Check for specific product category
+      const categories = Array.from(
+        new Set(insurancePlans.map((plan) => plan.product_category))
+      );
+
+      for (const category of categories) {
+        if (queryLower.includes(category.toLowerCase())) {
+          const matchingPlans = insurancePlans.filter(
+            (plan) =>
+              plan.product_category.toLowerCase() === category.toLowerCase()
+          );
+
+          if (matchingPlans.length > 0) {
+            let response = `Here are the ${category} insurance plans available:\n\n`;
+
+            matchingPlans.forEach((plan) => {
+              response += `- **${plan.company_name} - ${plan.product_name}**: ${plan.product_price.toFixed(2)}/month\n`;
+              response += `  ${plan.product_benefits}\n\n`;
+            });
+
+            return response;
+          }
+        }
+      }
+
+      // Check for specific company
+      const companies = Array.from(
+        new Set(insurancePlans.map((plan) => plan.company_name))
+      );
+
+      for (const company of companies) {
+        if (queryLower.includes(company.toLowerCase())) {
+          const matchingPlans = insurancePlans.filter(
+            (plan) => plan.company_name.toLowerCase() === company.toLowerCase()
+          );
+
+          if (matchingPlans.length > 0) {
+            let response = `Here are the insurance plans offered by ${company}:\n\n`;
+
+            matchingPlans.forEach((plan) => {
+              response += `- **${plan.product_name}** (${plan.product_category}): ${plan.product_price.toFixed(2)}/month\n`;
+              response += `  ${plan.product_benefits}\n\n`;
+            });
+
+            return response;
+          }
+        }
+      }
+
+      // General product information
+      let response = "Here are the insurance plans we offer:\n\n";
+
+      // Group by category
+      const plansByCategory: Record<string, any[]> = {};
+
+      insurancePlans.forEach((plan) => {
+        if (!plansByCategory[plan.product_category]) {
+          plansByCategory[plan.product_category] = [];
+        }
+        plansByCategory[plan.product_category].push(plan);
+      });
+
+      for (const [category, plans] of Object.entries(plansByCategory)) {
+        response += `**${category} Plans:**\n`;
+
+        plans.forEach((plan) => {
+          response += `- ${plan.company_name} - ${plan.product_name}: ${plan.product_price.toFixed(2)}/month\n`;
+        });
+
+        response += "\n";
+      }
+
+      return response;
+    }
+
+    // Check for health condition related queries
+    if (
+      queryLower.includes("health") ||
+      queryLower.includes("condition") ||
+      queryLower.includes("medical")
+    ) {
+      // Check for specific health condition
+      for (const condition of healthConditions) {
+        if (queryLower.includes(condition.name.toLowerCase())) {
+          const disqualifyingPlans = insurancePlans.filter(
+            (plan) =>
+              plan.disqualifying_health_conditions &&
+              plan.disqualifying_health_conditions.includes(condition.name)
+          );
+
+          const qualifyingPlans = insurancePlans.filter(
+            (plan) =>
+              !plan.disqualifying_health_conditions ||
+              !plan.disqualifying_health_conditions.includes(condition.name)
+          );
+
+          let response = `For clients with ${condition.name}, here are the insurance options:\n\n`;
+
+          if (qualifyingPlans.length > 0) {
+            response += "**Available Plans:**\n";
+            qualifyingPlans.forEach((plan) => {
+              response += `- ${plan.company_name} - ${plan.product_name} (${plan.product_category}): ${plan.product_price.toFixed(2)}/month\n`;
+            });
+          } else {
+            response +=
+              "There are no plans available for this health condition.\n";
+          }
+
+          return response;
+        }
+      }
+
+      // General health condition information
+      let response =
+        "Here are the health conditions that may affect insurance eligibility:\n\n";
+
+      healthConditions.forEach((condition) => {
+        const disqualifyingPlans = insurancePlans.filter(
+          (plan) =>
+            plan.disqualifying_health_conditions &&
+            plan.disqualifying_health_conditions.includes(condition.name)
+        );
+
+        response += `- **${condition.name}**: Disqualifies from ${disqualifyingPlans.length} plans\n`;
+      });
+
+      return response;
+    }
+
+    // Check for medication related queries
+    if (
+      queryLower.includes("medication") ||
+      queryLower.includes("drug") ||
+      queryLower.includes("medicine")
+    ) {
+      // Check for specific medication
+      for (const medication of medications) {
+        if (queryLower.includes(medication.name.toLowerCase())) {
+          const disqualifyingPlans = insurancePlans.filter(
+            (plan) =>
+              plan.disqualifying_medications &&
+              plan.disqualifying_medications.includes(medication.name)
+          );
+
+          const qualifyingPlans = insurancePlans.filter(
+            (plan) =>
+              !plan.disqualifying_medications ||
+              !plan.disqualifying_medications.includes(medication.name)
+          );
+
+          let response = `For clients taking ${medication.name}, here are the insurance options:\n\n`;
+
+          if (qualifyingPlans.length > 0) {
+            response += "**Available Plans:**\n";
+            qualifyingPlans.forEach((plan) => {
+              response += `- ${plan.company_name} - ${plan.product_name} (${plan.product_category}): ${plan.product_price.toFixed(2)}/month\n`;
+            });
+          } else {
+            response +=
+              "There are no plans available for clients taking this medication.\n";
+          }
+
+          return response;
+        }
+      }
+
+      // General medication information
+      let response =
+        "Here are the medications that may affect insurance eligibility:\n\n";
+
+      medications.forEach((medication) => {
+        const disqualifyingPlans = insurancePlans.filter(
+          (plan) =>
+            plan.disqualifying_medications &&
+            plan.disqualifying_medications.includes(medication.name)
+        );
+
+        response += `- **${medication.name}**: Disqualifies from ${disqualifyingPlans.length} plans\n`;
+      });
+
+      return response;
+    }
+
+    // Check for price/cost related queries
+    if (
+      queryLower.includes("price") ||
+      queryLower.includes("cost") ||
+      queryLower.includes("affordable")
+    ) {
+      // Sort plans by price
+      const sortedPlans = [...insurancePlans].sort(
+        (a, b) => a.product_price - b.product_price
+      );
+
+      let response =
+        "Here are our insurance plans sorted by price (lowest to highest):\n\n";
+
+      sortedPlans.forEach((plan) => {
+        response += `- **${plan.company_name} - ${plan.product_name}** (${plan.product_category}): ${plan.product_price.toFixed(2)}/month\n`;
+      });
+
+      return response;
+    }
+
+    // Default response for other queries
+    if (queryLower.includes("america") && queryLower.includes("choice")) {
+      return "For America's Choice health insurance, a 32-year old male would typically pay between $350-$450 per month for coverage. This plan includes comprehensive health benefits with a $2,500 deductible, prescription drug coverage, and access to a wide network of providers. Would you like more specific information about coverage details?";
+    }
+
+    return "I can help you with information about our insurance products, health conditions, medications, and pricing. Please ask me about specific insurance plans, health conditions, or how to find the right coverage for your needs.";
+  };
+
+>>>>>>> f396971906ef4f47feed035b64d86828e17c4244
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !isLoading) {
       handleSend();
@@ -419,7 +673,7 @@ export function AIChat() {
       // IMPORTANT: We do NOT delete any chat messages from the database
       // This preserves the chat history for the history page
       console.log(
-        "Chat refreshed - starting new conversation while preserving history",
+        "Chat refreshed - starting new conversation while preserving history"
       );
     } catch (error) {
       console.error("Error refreshing chat:", error);

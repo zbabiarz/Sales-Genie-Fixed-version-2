@@ -1,4 +1,4 @@
-interface ClientData {
+export interface ClientData {
   full_name: string;
   date_of_birth: string;
   zip_code?: string;
@@ -36,7 +36,7 @@ interface BuildChartEntry {
   height_inches: number;
 }
 
-interface InsurancePlan {
+export interface InsurancePlan {
   id: string;
   company_name: string;
   product_name: string;
@@ -71,7 +71,7 @@ export function isAgeInRange(clientAge: number, ageRange: string): boolean {
     const [minAge, maxAge] = ageRange.split("-").map(Number);
     const result = clientAge >= minAge && clientAge <= maxAge;
     console.log(
-      `Range ${ageRange}: minAge=${minAge}, maxAge=${maxAge}, result=${result}`,
+      `Range ${ageRange}: minAge=${minAge}, maxAge=${maxAge}, result=${result}`
     );
     return result;
   }
@@ -85,7 +85,7 @@ export function checkBuildEligibility(
   heightFeet: number,
   heightInches: number,
   legacyHeight: number | undefined,
-  buildChart: BuildChartEntry[],
+  buildChart: BuildChartEntry[]
 ): boolean {
   // Quick check for weight exceeding maximum in chart
   let maxWeightInChart = 0;
@@ -98,7 +98,7 @@ export function checkBuildEligibility(
 
     if (weight > maxWeightInChart) {
       console.log(
-        `IMMEDIATE REJECTION: Weight ${weight} exceeds maximum chart weight ${maxWeightInChart}`,
+        `IMMEDIATE REJECTION: Weight ${weight} exceeds maximum chart weight ${maxWeightInChart}`
       );
       return false;
     }
@@ -106,10 +106,10 @@ export function checkBuildEligibility(
   console.log("\n===== BUILD ELIGIBILITY CHECK START =====");
   console.log(`Input values - Gender: ${gender}, Weight: ${weight} lbs`);
   console.log(
-    `Height: ${heightFeet}ft ${heightInches}in, Legacy height: ${legacyHeight || "N/A"}`,
+    `Height: ${heightFeet}ft ${heightInches}in, Legacy height: ${legacyHeight || "N/A"}`
   );
   console.log(
-    `Weight type: ${typeof weight}, Height feet type: ${typeof heightFeet}, Height inches type: ${typeof heightInches}`,
+    `Weight type: ${typeof weight}, Height feet type: ${typeof heightFeet}, Height inches type: ${typeof heightInches}`
   );
 
   // If no build chart data, consider eligible
@@ -122,16 +122,16 @@ export function checkBuildEligibility(
   console.log(`Build chart entries: ${buildChart.length}`);
   console.log(`First entry sample: ${JSON.stringify(buildChart[0])}`);
   console.log(
-    `Checking build eligibility - weight: ${weight}, height: ${heightFeet}ft ${heightInches}in`,
+    `Checking build eligibility - weight: ${weight}, height: ${heightFeet}ft ${heightInches}in`
   );
 
   // Filter build chart entries for the client's gender
   const genderEntries = buildChart.filter(
-    (entry) => entry.gender.toLowerCase() === gender.toLowerCase(),
+    (entry) => entry.gender.toLowerCase() === gender.toLowerCase()
   );
 
   console.log(
-    `Gender-specific entries found: ${genderEntries.length} for ${gender}`,
+    `Gender-specific entries found: ${genderEntries.length} for ${gender}`
   );
 
   if (genderEntries.length === 0) {
@@ -151,7 +151,7 @@ export function checkBuildEligibility(
     // Calculate from feet and inches
     totalHeightInches = heightFeet * 12 + heightInches;
     console.log(
-      `Calculated height: ${totalHeightInches} inches (${heightFeet}ft ${heightInches}in)`,
+      `Calculated height: ${totalHeightInches} inches (${heightFeet}ft ${heightInches}in)`
     );
   }
 
@@ -160,7 +160,7 @@ export function checkBuildEligibility(
     const entryHeightInches = entry.height_feet * 12 + entry.height_inches;
     const matches = entryHeightInches === totalHeightInches;
     console.log(
-      `Comparing heights - Entry: ${entry.height_feet}ft ${entry.height_inches}in (${entryHeightInches}in) vs Client: ${totalHeightInches}in - Match: ${matches}`,
+      `Comparing heights - Entry: ${entry.height_feet}ft ${entry.height_inches}in (${entryHeightInches}in) vs Client: ${totalHeightInches}in - Match: ${matches}`
     );
     return matches;
   });
@@ -168,7 +168,7 @@ export function checkBuildEligibility(
   // If no exact height match found, find the closest entry
   if (!matchingHeightEntry) {
     console.log(
-      `No exact height match found for ${heightFeet}ft ${heightInches}in (${totalHeightInches}in)`,
+      `No exact height match found for ${heightFeet}ft ${heightInches}in (${totalHeightInches}in)`
     );
     // Find closest height entry
     let closestEntry = genderEntries[0];
@@ -180,14 +180,14 @@ export function checkBuildEligibility(
       const difference = Math.abs(entryHeightInches - totalHeightInches);
 
       console.log(
-        `Entry: ${entry.height_feet}ft ${entry.height_inches}in (${entryHeightInches}in) - Difference: ${difference}in`,
+        `Entry: ${entry.height_feet}ft ${entry.height_inches}in (${entryHeightInches}in) - Difference: ${difference}in`
       );
 
       if (difference < minDifference) {
         minDifference = difference;
         closestEntry = entry;
         console.log(
-          `New closest match: ${entry.height_feet}ft ${entry.height_inches}in with difference of ${difference}in`,
+          `New closest match: ${entry.height_feet}ft ${entry.height_inches}in with difference of ${difference}in`
         );
       }
     }
@@ -195,22 +195,22 @@ export function checkBuildEligibility(
     // If the closest entry is within 1 inch, use it
     if (minDifference <= 1) {
       console.log(
-        `Using closest height entry: ${closestEntry.height_feet}ft ${closestEntry.height_inches}in (min weight: ${closestEntry.min_weight}, max weight: ${closestEntry.max_weight})`,
+        `Using closest height entry: ${closestEntry.height_feet}ft ${closestEntry.height_inches}in (min weight: ${closestEntry.min_weight}, max weight: ${closestEntry.max_weight})`
       );
       console.log(
-        `Client weight: ${weight} lbs, Min allowed: ${closestEntry.min_weight} lbs, Max allowed: ${closestEntry.max_weight} lbs`,
+        `Client weight: ${weight} lbs, Min allowed: ${closestEntry.min_weight} lbs, Max allowed: ${closestEntry.max_weight} lbs`
       );
       console.log(
-        `Weight >= Min check: ${weight} >= ${closestEntry.min_weight} = ${weight >= closestEntry.min_weight}`,
+        `Weight >= Min check: ${weight} >= ${closestEntry.min_weight} = ${weight >= closestEntry.min_weight}`
       );
       console.log(
-        `Weight <= Max check: ${weight} <= ${closestEntry.max_weight} = ${weight <= closestEntry.max_weight}`,
+        `Weight <= Max check: ${weight} <= ${closestEntry.max_weight} = ${weight <= closestEntry.max_weight}`
       );
 
       const isEligible =
         weight >= closestEntry.min_weight && weight <= closestEntry.max_weight;
       console.log(
-        `Weight ${weight} is ${isEligible ? "within" : "outside"} range ${closestEntry.min_weight}-${closestEntry.max_weight}`,
+        `Weight ${weight} is ${isEligible ? "within" : "outside"} range ${closestEntry.min_weight}-${closestEntry.max_weight}`
       );
       console.log(`Final eligibility result: ${isEligible}`);
       console.log("===== BUILD ELIGIBILITY CHECK END =====\n");
@@ -225,23 +225,23 @@ export function checkBuildEligibility(
 
   // Check if weight is within range for the matching height
   console.log(
-    `Exact height match found: ${matchingHeightEntry.height_feet}ft ${matchingHeightEntry.height_inches}in`,
+    `Exact height match found: ${matchingHeightEntry.height_feet}ft ${matchingHeightEntry.height_inches}in`
   );
   console.log(
-    `Client weight: ${weight} lbs, Min allowed: ${matchingHeightEntry.min_weight} lbs, Max allowed: ${matchingHeightEntry.max_weight} lbs`,
+    `Client weight: ${weight} lbs, Min allowed: ${matchingHeightEntry.min_weight} lbs, Max allowed: ${matchingHeightEntry.max_weight} lbs`
   );
   console.log(
-    `Weight >= Min check: ${weight} >= ${matchingHeightEntry.min_weight} = ${weight >= matchingHeightEntry.min_weight}`,
+    `Weight >= Min check: ${weight} >= ${matchingHeightEntry.min_weight} = ${weight >= matchingHeightEntry.min_weight}`
   );
   console.log(
-    `Weight <= Max check: ${weight} <= ${matchingHeightEntry.max_weight} = ${weight <= matchingHeightEntry.max_weight}`,
+    `Weight <= Max check: ${weight} <= ${matchingHeightEntry.max_weight} = ${weight <= matchingHeightEntry.max_weight}`
   );
 
   const isEligible =
     weight >= matchingHeightEntry.min_weight &&
     weight <= matchingHeightEntry.max_weight;
   console.log(
-    `Exact height match found. Weight ${weight} is ${isEligible ? "within" : "outside"} range ${matchingHeightEntry.min_weight}-${matchingHeightEntry.max_weight}`,
+    `Exact height match found. Weight ${weight} is ${isEligible ? "within" : "outside"} range ${matchingHeightEntry.min_weight}-${matchingHeightEntry.max_weight}`
   );
   console.log(`Final eligibility result: ${isEligible}`);
   console.log("===== BUILD ELIGIBILITY CHECK END =====\n");
@@ -250,7 +250,7 @@ export function checkBuildEligibility(
 
 export function filterMatchingPlans(
   clientData: ClientData,
-  allPlans: InsurancePlan[],
+  allPlans: InsurancePlan[]
 ): InsurancePlan[] {
   console.log("========== PLAN FILTERING START ==========");
   console.log(`Total plans to filter: ${allPlans.length}`);
@@ -267,13 +267,13 @@ export function filterMatchingPlans(
       health_conditions_count: clientData.health_conditions?.length || 0,
       medications_count: clientData.medications?.length || 0,
       dependents_count: clientData.dependents?.length || 0,
-    })}`,
+    })}`
   );
 
   // Filter plans based on client data
   const matchingPlans = allPlans.filter((plan) => {
     console.log(
-      `\n----- Evaluating Plan: ${plan.company_name} - ${plan.product_name} -----`,
+      `\n----- Evaluating Plan: ${plan.company_name} - ${plan.product_name} -----`
     );
 
     // Check state availability
@@ -283,12 +283,12 @@ export function filterMatchingPlans(
       !plan.available_states.includes(clientData.state)
     ) {
       console.log(
-        `STATE CHECK: FAILED - Client state ${clientData.state} not in plan states ${JSON.stringify(plan.available_states)}`,
+        `STATE CHECK: FAILED - Client state ${clientData.state} not in plan states ${JSON.stringify(plan.available_states)}`
       );
       return false;
     } else {
       console.log(
-        `STATE CHECK: PASSED - Client state ${clientData.state} is acceptable`,
+        `STATE CHECK: PASSED - Client state ${clientData.state} is acceptable`
       );
     }
 
@@ -300,7 +300,7 @@ export function filterMatchingPlans(
       !plan.available_zip_codes.includes(clientData.zip_code)
     ) {
       console.log(
-        `ZIP CODE CHECK: FAILED - Client zip ${clientData.zip_code} not in plan zip codes`,
+        `ZIP CODE CHECK: FAILED - Client zip ${clientData.zip_code} not in plan zip codes`
       );
       return false;
     } else if (
@@ -308,7 +308,7 @@ export function filterMatchingPlans(
       plan.available_zip_codes.length > 0
     ) {
       console.log(
-        `ZIP CODE CHECK: PASSED - Client zip ${clientData.zip_code || "not provided"} is acceptable`,
+        `ZIP CODE CHECK: PASSED - Client zip ${clientData.zip_code || "not provided"} is acceptable`
       );
     }
 
@@ -318,7 +318,7 @@ export function filterMatchingPlans(
       plan.coverage_type === "family"
     ) {
       console.log(
-        `COVERAGE TYPE CHECK: FAILED - Filtering out family plan: ${plan.product_name} for individual client`,
+        `COVERAGE TYPE CHECK: FAILED - Filtering out family plan: ${plan.product_name} for individual client`
       );
       return false;
     } else if (
@@ -327,19 +327,19 @@ export function filterMatchingPlans(
     ) {
       // For family coverage, filter out individual-only plans
       console.log(
-        `COVERAGE TYPE CHECK: FAILED - Filtering out individual-only plan for family: ${plan.product_name}`,
+        `COVERAGE TYPE CHECK: FAILED - Filtering out individual-only plan for family: ${plan.product_name}`
       );
       return false;
     } else {
       console.log(
-        `COVERAGE TYPE CHECK: PASSED - Client coverage type ${clientData.coverage_type || "not specified"} matches plan type ${plan.coverage_type || "not specified"}`,
+        `COVERAGE TYPE CHECK: PASSED - Client coverage type ${clientData.coverage_type || "not specified"} matches plan type ${plan.coverage_type || "not specified"}`
       );
     }
 
     // Check age range eligibility
     if (clientData.age) {
       console.log(
-        `Checking age eligibility: Client age ${clientData.age}, Plan age range ${plan.age_range || "All Ages"}`,
+        `Checking age eligibility: Client age ${clientData.age}, Plan age range ${plan.age_range || "All Ages"}`
       );
 
       // If plan has a specific age range (not "All Ages" or empty)
@@ -347,22 +347,22 @@ export function filterMatchingPlans(
         const isEligibleAge = isAgeInRange(clientData.age, plan.age_range);
         if (!isEligibleAge) {
           console.log(
-            `AGE CHECK: FAILED - Age range mismatch: ${clientData.age} not in ${plan.age_range}`,
+            `AGE CHECK: FAILED - Age range mismatch: ${clientData.age} not in ${plan.age_range}`
           );
           return false;
         } else {
           console.log(
-            `AGE CHECK: PASSED - Client age ${clientData.age} is within plan range ${plan.age_range}`,
+            `AGE CHECK: PASSED - Client age ${clientData.age} is within plan range ${plan.age_range}`
           );
         }
       } else {
         console.log(
-          `AGE CHECK: PASSED - Plan has no specific age range (${plan.age_range || "All Ages"})`,
+          `AGE CHECK: PASSED - Plan has no specific age range (${plan.age_range || "All Ages"})`
         );
       }
     } else {
       console.log(
-        `AGE CHECK: SKIPPED - Client age not provided, Plan age range ${plan.age_range || "not specified"}`,
+        `AGE CHECK: SKIPPED - Client age not provided, Plan age range ${plan.age_range || "not specified"}`
       );
     }
 
@@ -372,18 +372,18 @@ export function filterMatchingPlans(
       plan.disqualifying_health_conditions.length > 0
     ) {
       console.log(
-        `HEALTH CONDITIONS CHECK: Plan has ${plan.disqualifying_health_conditions.length} disqualifying conditions`,
+        `HEALTH CONDITIONS CHECK: Plan has ${plan.disqualifying_health_conditions.length} disqualifying conditions`
       );
 
       for (const condition of clientData.health_conditions || []) {
         const isDisqualifying =
           plan.disqualifying_health_conditions.includes(condition);
         console.log(
-          `Checking condition: ${condition} - Disqualifying: ${isDisqualifying}`,
+          `Checking condition: ${condition} - Disqualifying: ${isDisqualifying}`
         );
         if (isDisqualifying) {
           console.log(
-            `HEALTH CONDITIONS CHECK: FAILED - Client has disqualifying condition: ${condition}`,
+            `HEALTH CONDITIONS CHECK: FAILED - Client has disqualifying condition: ${condition}`
           );
           return false;
         }
@@ -392,18 +392,18 @@ export function filterMatchingPlans(
       // Also check dependents' health conditions if any
       if (clientData.dependents && clientData.dependents.length > 0) {
         console.log(
-          `Checking ${clientData.dependents.length} dependents for disqualifying health conditions`,
+          `Checking ${clientData.dependents.length} dependents for disqualifying health conditions`
         );
         for (const dependent of clientData.dependents) {
           for (const condition of dependent.health_conditions || []) {
             const isDisqualifying =
               plan.disqualifying_health_conditions.includes(condition);
             console.log(
-              `Checking dependent condition: ${condition} - Disqualifying: ${isDisqualifying}`,
+              `Checking dependent condition: ${condition} - Disqualifying: ${isDisqualifying}`
             );
             if (isDisqualifying) {
               console.log(
-                `HEALTH CONDITIONS CHECK: FAILED - Dependent has disqualifying condition: ${condition}`,
+                `HEALTH CONDITIONS CHECK: FAILED - Dependent has disqualifying condition: ${condition}`
               );
               return false;
             }
@@ -411,11 +411,11 @@ export function filterMatchingPlans(
         }
       }
       console.log(
-        `HEALTH CONDITIONS CHECK: PASSED - No disqualifying conditions found`,
+        `HEALTH CONDITIONS CHECK: PASSED - No disqualifying conditions found`
       );
     } else {
       console.log(
-        `HEALTH CONDITIONS CHECK: PASSED - Plan has no disqualifying conditions`,
+        `HEALTH CONDITIONS CHECK: PASSED - Plan has no disqualifying conditions`
       );
     }
 
@@ -425,18 +425,18 @@ export function filterMatchingPlans(
       plan.disqualifying_medications.length > 0
     ) {
       console.log(
-        `MEDICATIONS CHECK: Plan has ${plan.disqualifying_medications.length} disqualifying medications`,
+        `MEDICATIONS CHECK: Plan has ${plan.disqualifying_medications.length} disqualifying medications`
       );
 
       for (const medication of clientData.medications || []) {
         const isDisqualifying =
           plan.disqualifying_medications.includes(medication);
         console.log(
-          `Checking medication: ${medication} - Disqualifying: ${isDisqualifying}`,
+          `Checking medication: ${medication} - Disqualifying: ${isDisqualifying}`
         );
         if (isDisqualifying) {
           console.log(
-            `MEDICATIONS CHECK: FAILED - Client has disqualifying medication: ${medication}`,
+            `MEDICATIONS CHECK: FAILED - Client has disqualifying medication: ${medication}`
           );
           return false;
         }
@@ -445,7 +445,7 @@ export function filterMatchingPlans(
       // Also check dependents' medications if any
       if (clientData.dependents && clientData.dependents.length > 0) {
         console.log(
-          `Checking ${clientData.dependents.length} dependents for disqualifying medications`,
+          `Checking ${clientData.dependents.length} dependents for disqualifying medications`
         );
         for (const dependent of clientData.dependents) {
           for (const medication of dependent.medications || []) {
@@ -461,10 +461,10 @@ export function filterMatchingPlans(
                 // or if disqualifying medication contains the dependent medication
                 const isPartialMatch =
                   disqualifyingMedicationLower.includes(
-                    dependentMedicationLower,
+                    dependentMedicationLower
                   ) ||
                   dependentMedicationLower.includes(
-                    disqualifyingMedicationLower,
+                    disqualifyingMedicationLower
                   ) ||
                   // Split by common separators and check each part
                   disqualifyingMedicationLower
@@ -473,24 +473,24 @@ export function filterMatchingPlans(
                       (part) =>
                         part === dependentMedicationLower ||
                         (part.length > 3 &&
-                          dependentMedicationLower.includes(part)),
+                          dependentMedicationLower.includes(part))
                     );
 
                 console.log(
-                  `Dependent partial match check - Dependent: "${dependentMedicationLower}" vs Disqualifying: "${disqualifyingMedicationLower}" - Match: ${isPartialMatch}`,
+                  `Dependent partial match check - Dependent: "${dependentMedicationLower}" vs Disqualifying: "${disqualifyingMedicationLower}" - Match: ${isPartialMatch}`
                 );
 
                 return isPartialMatch;
-              },
+              }
             );
 
             console.log(
-              `Checking dependent medication: ${medication} - Partial match found: ${partialMatch}`,
+              `Checking dependent medication: ${medication} - Partial match found: ${partialMatch}`
             );
 
             if (partialMatch) {
               console.log(
-                `MEDICATIONS CHECK: FAILED - Dependent has disqualifying medication (partial match): ${medication}`,
+                `MEDICATIONS CHECK: FAILED - Dependent has disqualifying medication (partial match): ${medication}`
               );
               return false;
             }
@@ -498,24 +498,24 @@ export function filterMatchingPlans(
         }
       }
       console.log(
-        `MEDICATIONS CHECK: PASSED - No disqualifying medications found`,
+        `MEDICATIONS CHECK: PASSED - No disqualifying medications found`
       );
     } else {
       console.log(
-        `MEDICATIONS CHECK: PASSED - Plan has no disqualifying medications`,
+        `MEDICATIONS CHECK: PASSED - Plan has no disqualifying medications`
       );
     }
 
     // Check build chart eligibility if available
     if (plan.build_chart_jsonb && clientData.weight && clientData.gender) {
       console.log(
-        `BUILD CHART CHECK: Checking build chart for ${plan.product_name}`,
+        `BUILD CHART CHECK: Checking build chart for ${plan.product_name}`
       );
       console.log(
-        `Company: ${plan.company_name}, Product: ${plan.product_name}`,
+        `Company: ${plan.company_name}, Product: ${plan.product_name}`
       );
       console.log(
-        `Client weight: ${clientData.weight} (${typeof clientData.weight}), gender: ${clientData.gender}`,
+        `Client weight: ${clientData.weight} (${typeof clientData.weight}), gender: ${clientData.gender}`
       );
 
       // Find the maximum weight in the build chart for debugging
@@ -529,10 +529,10 @@ export function filterMatchingPlans(
       }
       console.log(`Maximum weight in build chart: ${maxWeightInChart}`);
       console.log(
-        `Client weight: ${clientData.weight}, Maximum allowed: ${maxWeightInChart}`,
+        `Client weight: ${clientData.weight}, Maximum allowed: ${maxWeightInChart}`
       );
       console.log(
-        `Raw comparison: ${clientData.weight} > ${maxWeightInChart} = ${clientData.weight > maxWeightInChart}`,
+        `Raw comparison: ${clientData.weight} > ${maxWeightInChart} = ${clientData.weight > maxWeightInChart}`
       );
 
       // Ensure all values are properly typed as numbers before passing to checkBuildEligibility
@@ -544,10 +544,10 @@ export function filterMatchingPlans(
         : undefined;
 
       console.log(
-        `Before eligibility check - weight: ${weightNum} (${typeof weightNum}), height: ${heightFeet}ft ${heightInches}in`,
+        `Before eligibility check - weight: ${weightNum} (${typeof weightNum}), height: ${heightFeet}ft ${heightInches}in`
       );
       console.log(
-        `Weight conversion: ${clientData.weight} (${typeof clientData.weight}) -> ${weightNum} (${typeof weightNum})`,
+        `Weight conversion: ${clientData.weight} (${typeof clientData.weight}) -> ${weightNum} (${typeof weightNum})`
       );
 
       const isEligibleBuild = checkBuildEligibility(
@@ -556,23 +556,23 @@ export function filterMatchingPlans(
         heightFeet,
         heightInches,
         legacyHeight,
-        plan.build_chart_jsonb,
+        plan.build_chart_jsonb
       );
 
       console.log(
-        `BUILD CHART CHECK: Result for ${plan.product_name}: ${isEligibleBuild ? "PASSED" : "FAILED"}`,
+        `BUILD CHART CHECK: Result for ${plan.product_name}: ${isEligibleBuild ? "PASSED" : "FAILED"}`
       );
 
       if (!isEligibleBuild) {
         console.log(
-          `BUILD CHART CHECK: FAILED - Client weight ${weightNum} outside range for height ${heightFeet}ft ${heightInches}in`,
+          `BUILD CHART CHECK: FAILED - Client weight ${weightNum} outside range for height ${heightFeet}ft ${heightInches}in`
         );
         return false;
       }
     } else {
       if (!plan.build_chart_jsonb) {
         console.log(
-          `BUILD CHART CHECK: PASSED - Plan has no build chart restrictions`,
+          `BUILD CHART CHECK: PASSED - Plan has no build chart restrictions`
         );
       } else if (!clientData.weight) {
         console.log(`BUILD CHART CHECK: PASSED - Client weight not provided`);
@@ -583,7 +583,7 @@ export function filterMatchingPlans(
 
     // If all checks pass, the plan is a match
     console.log(
-      `ALL CHECKS PASSED - Plan is a match: ${plan.company_name} - ${plan.product_name}`,
+      `ALL CHECKS PASSED - Plan is a match: ${plan.company_name} - ${plan.product_name}`
     );
     return true;
   });
