@@ -863,15 +863,6 @@ export function CallAnalyzer() {
                     </div>
                   )}
 
-                  <div className="mb-6">
-                    <h3 className="text-lg font-medium mb-2">
-                      Call Transcript
-                    </h3>
-                    <div className="bg-muted p-4 rounded-md text-sm whitespace-pre-wrap overflow-y-auto resize-y min-h-[100px] h-[20vh] cursor-ns-resize">
-                      {formatTranscript(transcript)}
-                    </div>
-                  </div>
-
                   {renderFeedbackSection({
                     title: "Strengths",
                     items: Array.isArray(analysis.agents_strengths)

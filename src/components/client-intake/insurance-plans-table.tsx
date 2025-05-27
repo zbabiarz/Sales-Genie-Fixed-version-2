@@ -109,7 +109,11 @@ export function InsurancePlansTable({
   };
 
   const handleSelectPlan = async (planId: string) => {
-    if (!clientId) {
+    // Get client ID from URL if not provided as prop
+    const searchParams = new URLSearchParams(window.location.search);
+    const clientIdToUse = clientId || searchParams.get("clientId");
+
+    if (!clientIdToUse) {
       toast({
         title: "No client selected",
         description: "Please select a client before selecting a plan.",
@@ -118,17 +122,17 @@ export function InsurancePlansTable({
       return;
     }
 
-    console.log("Client ID when selecting plan:", clientId);
+    console.log("Client ID when selecting plan:", clientIdToUse);
 
     setSelectingPlan(planId);
 
     try {
-      console.log("Selecting plan for client:", clientId, planId);
+      console.log("Selecting plan for client:", clientIdToUse, planId);
       // Check if the plan is already selected for this client
       const { data: existingSelection, error: checkError } = await supabase
         .from("client_selected_plans")
         .select("*")
-        .eq("client_id", clientId)
+        .eq("client_id", clientIdToUse)
         .eq("insurance_plan_id", planId)
         .maybeSingle();
 
@@ -151,7 +155,7 @@ export function InsurancePlansTable({
       const { data: insertData, error: insertError } = await supabase
         .from("client_selected_plans")
         .insert({
-          client_id: clientId,
+          client_id: clientIdToUse,
           insurance_plan_id: planId,
         })
         .select();
@@ -160,19 +164,40 @@ export function InsurancePlansTable({
 
       if (insertError) throw insertError;
 
+      // Get the plan details to show in the toast
+      const selectedPlan = plans.find((plan) => plan.id === planId);
+      const planName = selectedPlan
+        ? `${selectedPlan.company_name} - ${selectedPlan.product_name}`
+        : "Selected plan";
+
       toast({
         title: "Plan selected",
-        description: "The plan has been added to the client's selected plans.",
+        description: `${planName} has been added to the client's selected plans.`,
       });
 
       // Dispatch a custom event to notify other components
       if (typeof window !== "undefined") {
-        console.log("Dispatching plan-selected event:", { clientId, planId });
+        console.log("Dispatching plan-selected event:", {
+          clientId: clientIdToUse,
+          planId,
+        });
         window.dispatchEvent(
           new CustomEvent("plan-selected", {
-            detail: { clientId, planId },
+            detail: { clientId: clientIdToUse, planId },
           }),
         );
+      }
+
+      // Redirect to client detail page if not already there
+      const currentPath = window.location.pathname;
+      if (
+        !currentPath.includes("/dashboard") ||
+        currentPath.includes("intake")
+      ) {
+        // Add a slight delay to ensure the toast is visible before redirecting
+        setTimeout(() => {
+          window.location.href = `/dashboard?clientId=${clientIdToUse}`;
+        }, 1500);
       }
     } catch (error) {
       console.error("Error selecting plan:", error);

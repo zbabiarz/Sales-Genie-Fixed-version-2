@@ -365,7 +365,10 @@ export function ClientList({
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
-        <Button className="bg-teal-600 hover:bg-teal-700">
+        <Button
+          className="bg-teal-600 hover:bg-teal-700"
+          onClick={() => (window.location.href = "/dashboard?tab=intake")}
+        >
           <Plus className="mr-2 h-4 w-4" /> New Client
         </Button>
       </div>
@@ -524,7 +527,10 @@ export function ClientList({
                 : "You haven't added any clients yet. Add a client to get started."}
             </p>
             {!searchTerm && (
-              <Button className="mt-4 bg-teal-600 hover:bg-teal-700">
+              <Button
+                className="mt-4 bg-teal-600 hover:bg-teal-700"
+                onClick={() => (window.location.href = "/dashboard?tab=intake")}
+              >
                 <Plus className="mr-2 h-4 w-4" /> Add Your First Client
               </Button>
             )}

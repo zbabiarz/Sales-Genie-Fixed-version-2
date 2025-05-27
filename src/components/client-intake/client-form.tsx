@@ -311,6 +311,10 @@ export function ClientForm() {
     setIsLoading(true);
     setMatchingPlans([]);
 
+    // Store the client ID from URL if it exists
+    const searchParams = new URLSearchParams(window.location.search);
+    const clientIdFromUrl = searchParams.get("clientId");
+
     try {
       const { data: allPlans, error: plansError } = await supabase
         .from("insurance_plans")
@@ -344,18 +348,30 @@ export function ClientForm() {
     setActiveTab("results");
 
     let existingClient = false;
+    let existingClientId = null;
     try {
       const { data: user } = await supabase.auth.getUser();
       const userId = user.user?.id;
 
       if (userId) {
-        const { data: existingClients } = await supabase
-          .from("clients")
-          .select("id")
-          .eq("user_id", userId)
-          .eq("full_name", clientData.full_name);
+        // If we have a client ID from URL, use that as the existing client
+        if (clientIdFromUrl) {
+          existingClient = true;
+          existingClientId = clientIdFromUrl;
+          console.log("Using client ID from URL:", clientIdFromUrl);
+        } else {
+          // Otherwise check if client with same name exists
+          const { data: existingClients } = await supabase
+            .from("clients")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("full_name", clientData.full_name);
 
-        existingClient = existingClients && existingClients.length > 0;
+          existingClient = existingClients && existingClients.length > 0;
+          if (existingClient && existingClients && existingClients.length > 0) {
+            existingClientId = existingClients[0].id;
+          }
+        }
       }
     } catch (error) {
       console.error("Error checking for existing client:", error);
@@ -694,7 +710,46 @@ export function ClientForm() {
         const userId = user.user?.id;
 
         let clientRecord = null;
-        if (!existingClient && userId) {
+        if (existingClient && existingClientId) {
+          // Update existing client
+          const { data: updatedClientRecord, error: updateError } =
+            await supabase
+              .from("clients")
+              .update({
+                gender: clientData.gender,
+                date_of_birth:
+                  clientData.date_of_birth || clientData._calculatedDob || "",
+                state: clientData.state,
+                height: clientData.height
+                  ? parseFloat(clientData.height)
+                  : null,
+                height_feet: clientData.height_feet
+                  ? parseFloat(clientData.height_feet)
+                  : null,
+                height_inches: clientData.height_inches
+                  ? parseFloat(clientData.height_inches)
+                  : null,
+                weight: clientData.weight
+                  ? parseFloat(clientData.weight)
+                  : null,
+                health_conditions: [
+                  ...clientData.health_conditions,
+                  ...clientData.custom_health_conditions,
+                ],
+                medications: [
+                  ...clientData.medications,
+                  ...clientData.custom_medications,
+                ],
+              })
+              .eq("id", existingClientId)
+              .select()
+              .single();
+
+          if (updateError) throw updateError;
+          clientRecord = updatedClientRecord;
+          console.log("Updated existing client:", clientRecord);
+        } else if (userId) {
+          // Create new client
           const { data: newClientRecord, error: clientError } = await supabase
             .from("clients")
             .insert({
@@ -727,6 +782,7 @@ export function ClientForm() {
 
           if (clientError) throw clientError;
           clientRecord = newClientRecord;
+          console.log("Created new client:", clientRecord);
         }
 
         if (userId && clientRecord) {
@@ -738,6 +794,17 @@ export function ClientForm() {
         }
 
         if (dependents.length > 0 && clientRecord) {
+          // First delete existing dependents for this client
+          const { error: deleteError } = await supabase
+            .from("dependents")
+            .delete()
+            .eq("client_id", clientRecord.id);
+
+          if (deleteError) {
+            console.error("Error deleting existing dependents:", deleteError);
+          }
+
+          // Then insert new dependents
           const dependentsToInsert = dependents.map((dep) => ({
             client_id: clientRecord.id,
             relationship: dep.relationship,
@@ -757,15 +824,18 @@ export function ClientForm() {
             medications: [...dep.medications, ...dep.custom_medications],
           }));
 
-          const { error: dependentsError } = await supabase
+          const { error: insertError } = await supabase
             .from("dependents")
             .insert(dependentsToInsert);
 
-          if (dependentsError) throw dependentsError;
+          if (insertError) throw insertError;
         }
 
-        if (existingClient) {
-          console.log("Client already exists, skipped creating duplicate");
+        // Update URL with client ID for future reference
+        if (clientRecord && clientRecord.id) {
+          const url = new URL(window.location.href);
+          url.searchParams.set("clientId", clientRecord.id);
+          window.history.replaceState({}, "", url);
         }
       } catch (dbError) {
         console.error("Error saving client data:", dbError);
