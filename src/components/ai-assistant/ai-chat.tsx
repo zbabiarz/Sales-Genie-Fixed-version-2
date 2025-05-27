@@ -8,6 +8,7 @@ import { Send, User, Loader2, RefreshCw, History } from "lucide-react";
 import Link from "next/link";
 import { RobotIcon } from "@/components/robot-icon";
 import { createClient } from "../../../supabase/client";
+import { cleanResponse } from "@/utils/format-utils";
 
 type Message = {
   role: "user" | "assistant";
