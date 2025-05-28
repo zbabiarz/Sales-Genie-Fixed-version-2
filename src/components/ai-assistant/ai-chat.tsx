@@ -33,92 +33,148 @@ export function AIChat() {
 
         console.log("Loading conversation history for user:", userData.user.id);
 
-        // First try to load from local chat_messages table
-        const { data: localMessages, error: localError } = await supabase
-          .from("chat_messages")
-          .select("*")
-          .eq("user_id", userData.user.id)
-          .order("created_at", { ascending: true });
+        // If we already have a threadId, load messages for that thread
+        if (threadId) {
+          // First try to load from local chat_messages table
+          const { data: localMessages, error: localError } = await supabase
+            .from("chat_messages")
+            .select("*")
+            .eq("user_id", userData.user.id)
+            .eq("thread_id", threadId)
+            .order("created_at", { ascending: true });
 
-        if (localError) {
-          console.error("Error loading local messages:", localError);
-          // If the table doesn't exist, log it but don't try to create it
-          if (localError.message.includes("does not exist")) {
+          if (localError) {
+            console.error("Error loading local messages:", localError);
+            // If the table doesn't exist, log it but don't try to create it
+            if (localError.message.includes("does not exist")) {
+              console.log(
+                "Chat messages table doesn't exist, it should be created via migration",
+              );
+            }
+          }
+
+          if (localMessages && localMessages.length > 0) {
             console.log(
-              "Chat messages table doesn't exist, it should be created via migration",
+              "Found local messages for thread:",
+              localMessages.length,
             );
+            // We have local messages, use them
+            const formattedMessages = localMessages.map((msg) => ({
+              role: msg.role as "user" | "assistant",
+              content: msg.content,
+            }));
+            setMessages(formattedMessages);
+            return;
           }
-        }
+        } else {
+          // No threadId provided, get the most recent thread for this user
+          console.log("No thread ID provided, finding most recent thread");
 
-        if (localMessages && localMessages.length > 0) {
-          console.log("Found local messages:", localMessages.length);
-          // We have local messages, use them
-          const formattedMessages = localMessages.map((msg) => ({
-            role: msg.role as "user" | "assistant",
-            content: msg.content,
-          }));
-          setMessages(formattedMessages);
+          // Get the most recent thread ID from chat_messages
+          const { data: recentThreadData, error: recentThreadError } =
+            await supabase
+              .from("chat_messages")
+              .select("thread_id, created_at")
+              .eq("user_id", userData.user.id)
+              .order("created_at", { ascending: false })
+              .limit(1);
 
-          // Get the thread ID from the most recent message
-          const threadIdFromMessages = localMessages[0].thread_id;
-          if (threadIdFromMessages) {
-            setThreadId(threadIdFromMessages);
-            console.log("Using thread ID from messages:", threadIdFromMessages);
+          if (recentThreadError) {
+            console.error("Error finding recent thread:", recentThreadError);
           }
-          return;
-        }
 
-        // If no local messages, check if user has an existing thread ID
-        const { data: userThreadData } = await supabase
-          .from("users")
-          .select("openai_thread_id")
-          .eq("id", userData.user.id)
-          .single();
+          // If we found a recent thread, use it
+          if (recentThreadData && recentThreadData.length > 0) {
+            const recentThreadId = recentThreadData[0].thread_id;
+            console.log("Found most recent thread ID:", recentThreadId);
+            setThreadId(recentThreadId);
 
-        if (userThreadData?.openai_thread_id) {
-          setThreadId(userThreadData.openai_thread_id);
-          // Fetch messages from this thread
-          const response = await fetch("/api/openai/messages", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-              threadId: userThreadData.openai_thread_id,
-            }),
-          });
+            // Load messages for this thread
+            const { data: threadMessages, error: threadMessagesError } =
+              await supabase
+                .from("chat_messages")
+                .select("*")
+                .eq("user_id", userData.user.id)
+                .eq("thread_id", recentThreadId)
+                .order("created_at", { ascending: true });
 
-          if (response.ok) {
-            const data = await response.json();
-            if (data.messages && data.messages.length > 0) {
-              // Format messages for display without cleaning
-              const formattedMessages = data.messages.map((msg: any) => ({
+            if (threadMessagesError) {
+              console.error(
+                "Error loading thread messages:",
+                threadMessagesError,
+              );
+            }
+
+            if (threadMessages && threadMessages.length > 0) {
+              console.log(
+                "Loaded messages for most recent thread:",
+                threadMessages.length,
+              );
+              const formattedMessages = threadMessages.map((msg) => ({
                 role: msg.role as "user" | "assistant",
-                content: msg.content[0]?.text?.value || "",
+                content: msg.content,
               }));
+              setMessages(formattedMessages);
+              return;
+            }
+          } else {
+            // If no recent thread found in chat_messages, check user's openai_thread_id
+            const { data: userThreadData } = await supabase
+              .from("users")
+              .select("openai_thread_id")
+              .eq("id", userData.user.id)
+              .single();
 
-              // Let the OpenAI Assistant handle all messages
+            if (userThreadData?.openai_thread_id) {
+              console.log(
+                "Using thread ID from user profile:",
+                userThreadData.openai_thread_id,
+              );
+              setThreadId(userThreadData.openai_thread_id);
+              // Fetch messages from this thread
+              const response = await fetch("/api/openai/messages", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  threadId: userThreadData.openai_thread_id,
+                }),
+              });
 
-              const reversedMessages = formattedMessages.reverse();
-              setMessages(reversedMessages);
+              if (response.ok) {
+                const data = await response.json();
+                if (data.messages && data.messages.length > 0) {
+                  // Format messages for display without cleaning
+                  const formattedMessages = data.messages.map((msg: any) => ({
+                    role: msg.role as "user" | "assistant",
+                    content: msg.content[0]?.text?.value || "",
+                  }));
 
-              // Store these messages in our local database for future use
-              try {
-                const messagesToStore = reversedMessages.map(
-                  (msg: { role: any; content: any }) => ({
-                    user_id: userData.user.id,
-                    thread_id: userThreadData.openai_thread_id,
-                    role: msg.role,
-                    content: msg.content,
-                  }),
-                );
+                  const reversedMessages = formattedMessages.reverse();
+                  setMessages(reversedMessages);
 
-                await supabase.from("chat_messages").insert(messagesToStore);
-              } catch (storeError) {
-                console.error(
-                  "Error storing messages in database:",
-                  storeError,
-                );
+                  // Store these messages in our local database for future use
+                  try {
+                    const messagesToStore = reversedMessages.map(
+                      (msg: { role: any; content: any }) => ({
+                        user_id: userData.user.id,
+                        thread_id: userThreadData.openai_thread_id,
+                        role: msg.role,
+                        content: msg.content,
+                      }),
+                    );
+
+                    await supabase
+                      .from("chat_messages")
+                      .insert(messagesToStore);
+                  } catch (storeError) {
+                    console.error(
+                      "Error storing messages in database:",
+                      storeError,
+                    );
+                  }
+                }
               }
             }
           }
@@ -129,7 +185,7 @@ export function AIChat() {
     };
 
     loadConversationHistory();
-  }, []);
+  }, []); // Remove threadId dependency to prevent reloading when threadId changes
 
   useEffect(() => {
     scrollToBottom();
@@ -147,31 +203,31 @@ export function AIChat() {
     setInput("");
     setIsLoading(true);
 
-    // Only store messages if this is an actual user prompt (not the initial welcome message)
-    if (
-      messages.length > 1 ||
-      (messages.length === 1 && messages[0].role !== "assistant")
-    ) {
-      // Store the user message in our local database
-      try {
-        const { data: userData } = await supabase.auth.getUser();
-        if (userData.user) {
-          console.log("Storing user message for user:", userData.user.id);
-          // Don't use "pending" as a thread ID placeholder as it causes OpenAI API errors
-          const currentThreadId = threadId || null;
-          console.log("Using thread ID:", currentThreadId || "<no thread yet>");
+    // Store the user message in our local database
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (userData.user) {
+        console.log("Storing user message for user:", userData.user.id);
 
-          // Only insert with thread_id if we have a valid one
-          const insertData = {
-            user_id: userData.user.id,
-            role: "user",
-            content: input,
-            ...(currentThreadId ? { thread_id: currentThreadId } : {}),
-          };
+        // Check if we have a thread ID before trying to store the message
+        if (!threadId) {
+          // If no thread ID exists yet, we'll create one via the API call below
+          // and store the message after we get the response
+          console.log(
+            "No thread ID yet, will store message after thread creation",
+          );
+        } else {
+          // We have a valid thread ID, proceed with storing the message
+          console.log("Using thread ID:", threadId);
 
           const { error: insertError } = await supabase
             .from("chat_messages")
-            .insert(insertData);
+            .insert({
+              user_id: userData.user.id,
+              thread_id: threadId,
+              role: "user",
+              content: input,
+            });
 
           if (insertError) {
             console.error("Error inserting user message:", insertError);
@@ -185,9 +241,9 @@ export function AIChat() {
             console.log("User message stored successfully");
           }
         }
-      } catch (storeError) {
-        console.error("Error storing user message:", storeError);
       }
+    } catch (storeError) {
+      console.error("Error storing user message:", storeError);
     }
 
     // Add a temporary thinking message from the assistant
@@ -282,6 +338,33 @@ export function AIChat() {
               .from("users")
               .update({ openai_thread_id: data.threadId })
               .eq("id", userData.user.id);
+
+            // If we didn't have a thread ID before, store the user message now that we have one
+            if (!threadId) {
+              console.log(
+                "Now storing user message with new thread ID:",
+                data.threadId,
+              );
+              const { error: insertError } = await supabase
+                .from("chat_messages")
+                .insert({
+                  user_id: userData.user.id,
+                  thread_id: data.threadId,
+                  role: "user",
+                  content: userMessage.content,
+                });
+
+              if (insertError) {
+                console.error(
+                  "Error inserting user message with new thread ID:",
+                  insertError,
+                );
+              } else {
+                console.log(
+                  "User message stored successfully with new thread ID",
+                );
+              }
+            }
           }
 
           // Replace the temporary thinking message with the raw response
@@ -302,46 +385,40 @@ export function AIChat() {
             }
           });
 
-          // Only store messages if this is an actual conversation (not just the welcome message)
-          if (
-            messages.length > 1 ||
-            (messages.length === 1 && messages[0].role !== "assistant")
-          ) {
-            // Store the message in our local database
-            try {
-              if (userData.user && data.threadId) {
-                console.log(
-                  "Storing assistant message for thread:",
-                  data.threadId,
+          // Store the message in our local database
+          try {
+            if (userData.user && data.threadId) {
+              console.log(
+                "Storing assistant message for thread:",
+                data.threadId,
+              );
+
+              const { error: insertError } = await supabase
+                .from("chat_messages")
+                .insert({
+                  user_id: userData.user.id,
+                  thread_id: data.threadId,
+                  role: "assistant",
+                  content: data.response,
+                });
+
+              if (insertError) {
+                console.error(
+                  "Error inserting assistant message:",
+                  insertError,
                 );
-
-                const { error: insertError } = await supabase
-                  .from("chat_messages")
-                  .insert({
-                    user_id: userData.user.id,
-                    thread_id: data.threadId,
-                    role: "assistant",
-                    content: data.response,
-                  });
-
-                if (insertError) {
-                  console.error(
-                    "Error inserting assistant message:",
-                    insertError,
+                // If the table doesn't exist, log it but don't try to create it
+                if (insertError.message.includes("does not exist")) {
+                  console.log(
+                    "Chat messages table doesn't exist, it should be created via migration",
                   );
-                  // If the table doesn't exist, log it but don't try to create it
-                  if (insertError.message.includes("does not exist")) {
-                    console.log(
-                      "Chat messages table doesn't exist, it should be created via migration",
-                    );
-                  }
-                } else {
-                  console.log("Assistant message stored successfully");
                 }
+              } else {
+                console.log("Assistant message stored successfully");
               }
-            } catch (storeError) {
-              console.error("Error storing assistant message:", storeError);
             }
+          } catch (storeError) {
+            console.error("Error storing assistant message:", storeError);
           }
         } else {
           // If API call fails, remove the thinking message
