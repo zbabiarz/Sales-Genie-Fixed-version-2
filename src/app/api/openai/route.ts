@@ -1,10 +1,7 @@
 import { NextResponse } from "next/server";
 import OpenAI from "openai";
-<<<<<<< HEAD
 import { createClient } from "@/app/supabase/server";
-=======
-import { createClient } from "../../supabase/server";
->>>>>>> f396971906ef4f47feed035b64d86828e17c4244
+import { cleanResponse } from "@/utils/format-utils";
 
 // Initialize the OpenAI client with the API key from environment variables
 const openai = new OpenAI({
@@ -19,7 +16,7 @@ export async function POST(request: Request) {
     if (!assistantId) {
       return NextResponse.json(
         { error: "OpenAI Assistant ID not configured" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -52,7 +49,7 @@ export async function POST(request: Request) {
         headers: {
           "OpenAI-Beta": "assistants=v2",
         },
-      }
+      },
     );
 
     // Prepare context as additional instructions if available
@@ -67,7 +64,7 @@ export async function POST(request: Request) {
         // Helper function to truncate JSON strings
         const truncateJSON = (
           obj: string | any[],
-          maxLength: number | undefined
+          maxLength: number | undefined,
         ) => {
           if (!obj || (Array.isArray(obj) && obj.length === 0)) return "[]";
 
@@ -106,13 +103,8 @@ export async function POST(request: Request) {
 
         // Prioritize insurance plans as they're most relevant
         const insurancePlansStr = truncateJSON(
-<<<<<<< HEAD
           plansToUse,
           maxCharsPerSection / 3, // Reduce size further
-=======
-          context.insurancePlans || [],
-          maxCharsPerSection
->>>>>>> f396971906ef4f47feed035b64d86828e17c4244
         );
 
         // Calculate remaining space for other sections
@@ -121,18 +113,18 @@ export async function POST(request: Request) {
 
         const healthConditionsStr = truncateJSON(
           context.healthConditions || [],
-          charsPerRemaining
+          charsPerRemaining,
         );
 
         const medicationsStr = truncateJSON(
           context.medications || [],
-          charsPerRemaining
+          charsPerRemaining,
         );
 
         additionalInstructions = `Insurance Plans (sample of ${plansToUse.length} plans): ${insurancePlansStr}\n\nHealth Conditions: ${healthConditionsStr}\n\nMedications: ${medicationsStr}`;
 
         console.log(
-          `Context sizes - Plans: ${insurancePlansStr.length}, Health: ${healthConditionsStr.length}, Meds: ${medicationsStr.length}, Total: ${additionalInstructions.length} chars`
+          `Context sizes - Plans: ${insurancePlansStr.length}, Health: ${healthConditionsStr.length}, Meds: ${medicationsStr.length}, Total: ${additionalInstructions.length} chars`,
         );
       } catch (contextError) {
         console.error("Error processing context data:", contextError);
@@ -155,7 +147,7 @@ export async function POST(request: Request) {
         headers: {
           "OpenAI-Beta": "assistants=v2",
         },
-      }
+      },
     );
 
     // Wait for the run to complete with the OpenAI-Beta header for v2
@@ -166,14 +158,14 @@ export async function POST(request: Request) {
         headers: {
           "OpenAI-Beta": "assistants=v2",
         },
-      }
+      },
     );
 
     while (runStatus.status !== "completed") {
       if (["failed", "cancelled", "expired"].includes(runStatus.status)) {
         return NextResponse.json(
           { error: `Run ended with status: ${runStatus.status}` },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
@@ -186,7 +178,7 @@ export async function POST(request: Request) {
           headers: {
             "OpenAI-Beta": "assistants=v2",
           },
-        }
+        },
       );
     }
 
@@ -199,12 +191,12 @@ export async function POST(request: Request) {
 
     // Find the last assistant message
     const assistantMessages = messages.data.filter(
-      (m) => m.role === "assistant"
+      (m) => m.role === "assistant",
     );
     if (assistantMessages.length === 0) {
       return NextResponse.json(
         { error: "No response from assistant" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -218,7 +210,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Return the raw response without any modification
+    // Clean the response to remove source indicators
+    responseText = cleanResponse(responseText);
 
     // If this is a new thread and we have a userId, store the thread ID in the database
     if (isNewThread && userId) {
@@ -312,7 +305,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json(
       { error: clientErrorMessage },
-      { status: statusCode }
+      { status: statusCode },
     );
   }
 }
