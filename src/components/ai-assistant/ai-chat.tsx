@@ -290,19 +290,31 @@ export function AIChat() {
       }
 
       // Get insurance plans from Supabase
-      const { data: insurancePlans } = await supabase
+      const { data: insurancePlans, error: plansError } = await supabase
         .from("insurance_plans")
         .select("*");
 
+      if (plansError) {
+        console.error("Error fetching insurance plans:", plansError);
+      }
+
       // Get health conditions from Supabase
-      const { data: healthConditions } = await supabase
+      const { data: healthConditions, error: conditionsError } = await supabase
         .from("health_conditions")
         .select("*");
 
+      if (conditionsError) {
+        console.error("Error fetching health conditions:", conditionsError);
+      }
+
       // Get medications from Supabase
-      const { data: medications } = await supabase
+      const { data: medications, error: medicationsError } = await supabase
         .from("medications")
         .select("*");
+
+      if (medicationsError) {
+        console.error("Error fetching medications:", medicationsError);
+      }
 
       // Use the server API route instead of client-side processing
       const context = {
@@ -313,21 +325,30 @@ export function AIChat() {
 
       try {
         // Call the API route with thread ID if available
+        // Ensure all data is properly defined before sending
+        const requestBody = {
+          message: userMessage.content,
+          context: context || {},
+          threadId: threadId || null,
+          userId: userData.user?.id,
+        };
+
+        console.log(
+          "Sending request to OpenAI API:",
+          JSON.stringify(requestBody),
+        );
+
         const apiResponse = await fetch("/api/openai", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            message: userMessage.content,
-            context,
-            threadId,
-            userId: userData.user.id,
-          }),
+          body: JSON.stringify(requestBody),
         });
 
         if (apiResponse.ok) {
           const data = await apiResponse.json();
+          console.log("Received successful response from OpenAI API");
 
           // Save the thread ID if it's new
           if (data.threadId && (!threadId || threadId !== data.threadId)) {
@@ -421,7 +442,16 @@ export function AIChat() {
             console.error("Error storing assistant message:", storeError);
           }
         } else {
-          // If API call fails, remove the thinking message
+          // If API call fails, remove the thinking message and show error
+          console.error("API call failed with status:", apiResponse.status);
+
+          try {
+            const errorData = await apiResponse.json();
+            console.error("Error details:", errorData);
+          } catch (e) {
+            console.error("Could not parse error response");
+          }
+
           setMessages((prev) => {
             const newMessages = [...prev];
             if (
@@ -430,13 +460,19 @@ export function AIChat() {
               newMessages[newMessages.length - 1].content === ""
             ) {
               newMessages.pop(); // Remove the empty thinking message
+              // Add error message
+              newMessages.push({
+                role: "assistant",
+                content:
+                  "I'm sorry, I encountered an error processing your request. Please try again later.",
+              });
             }
             return newMessages;
           });
         }
       } catch (apiError) {
         console.error("Error calling OpenAI API:", apiError);
-        // Remove the thinking message on error
+        // Remove the thinking message on error and add error message
         setMessages((prev) => {
           const newMessages = [...prev];
           if (
@@ -445,6 +481,12 @@ export function AIChat() {
             newMessages[newMessages.length - 1].content === ""
           ) {
             newMessages.pop(); // Remove the empty thinking message
+            // Add error message
+            newMessages.push({
+              role: "assistant",
+              content:
+                "I'm sorry, I encountered an error connecting to the AI service. Please check your network connection and try again.",
+            });
           }
           return newMessages;
         });

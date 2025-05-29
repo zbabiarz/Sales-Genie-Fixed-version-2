@@ -5,13 +5,22 @@ let openai: OpenAI | null = null;
 
 export const getOpenAIClient = () => {
   // Only create a new client if one doesn't exist and if the API key is available
-  if (typeof window !== "undefined" && !openai) {
-    const apiKey =
-      process.env.NEXT_PUBLIC_OPENAI_API_KEY || "dummy-key-replace-me";
+  if (!openai) {
+    // Check if we're on client or server side
+    const isClient = typeof window !== "undefined";
+
+    // Use the appropriate environment variable based on client/server context
+    const apiKey = isClient
+      ? process.env.NEXT_PUBLIC_OPENAI_API_KEY
+      : process.env.OPENAI_API_KEY;
+
+    if (!apiKey || apiKey === "dummy-key-replace-me") {
+      console.error("OpenAI API key is missing or invalid");
+    }
 
     openai = new OpenAI({
-      apiKey,
-      dangerouslyAllowBrowser: true, // Required for client-side usage
+      apiKey: apiKey || "dummy-key-replace-me",
+      dangerouslyAllowBrowser: isClient, // Only needed for client-side
     });
   }
 
