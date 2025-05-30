@@ -35,19 +35,13 @@ export default function Footer() {
             <h3 className="font-semibold text-gray-900 mb-4">Solutions</h3>
             <ul className="space-y-2">
               <li>
-                <Link href="#" className="text-gray-600 hover:text-teal-600">
-                  Health Insurance
-                </Link>
+                <span className="text-gray-600">Health Insurance</span>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 hover:text-teal-600">
-                  Life Insurance
-                </Link>
+                <span className="text-gray-600">Life Insurance</span>
               </li>
               <li>
-                <Link href="#" className="text-gray-600 hover:text-teal-600">
-                  Group Benefits
-                </Link>
+                <span className="text-gray-600">Group Benefits</span>
               </li>
             </ul>
           </div>

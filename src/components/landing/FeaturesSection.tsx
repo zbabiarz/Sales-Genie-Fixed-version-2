@@ -70,7 +70,13 @@ export default function FeaturesSection() {
           {/* AI Chatbot Assistant */}
           <div className="p-6 bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-teal-100">
             <div className="text-teal-600 mb-4">
-              <BrainCircuit className="w-6 h-6" />
+              <Image
+                src="https://storage.googleapis.com/msgsndr/QFjnAi2H2A9Cpxi7l0ri/media/683a13a4d90687ed381e2028.png"
+                alt="AI Chatbot Icon"
+                width={24}
+                height={24}
+                className="w-6 h-6"
+              />
             </div>
             <h3 className="text-xl font-semibold mb-2">AI Chatbot Assistant</h3>
             <p className="text-gray-600 mb-4">

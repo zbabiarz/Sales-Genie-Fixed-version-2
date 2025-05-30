@@ -73,8 +73,9 @@ export default function PricingCard({
   const getFeatures = (planName: string) => {
     const baseFeatures = [
       "Client intake & matching system",
-      "Basic AI chatbot assistant",
+      "AI underwriting chatbot",
       "Dashboard analytics",
+      "AI sales call analyzer",
     ];
 
     const proFeatures = [
