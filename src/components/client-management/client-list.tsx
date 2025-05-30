@@ -91,16 +91,28 @@ export function ClientList({
 
   const fetchClients = async () => {
     try {
-      const { data: user } = await supabase.auth.getUser();
-      if (!user.user) return;
+      console.log("Fetching clients from database...");
+      setIsLoading(true);
 
+      const { data: user } = await supabase.auth.getUser();
+      if (!user.user) {
+        console.error("No authenticated user found when fetching clients");
+        return;
+      }
+
+      console.log("Authenticated user ID:", user.user.id);
       const { data, error } = await supabase
         .from("clients")
         .select("*")
         .eq("user_id", user.user.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Database error when fetching clients:", error);
+        throw error;
+      }
+
+      console.log(`Successfully fetched ${data?.length || 0} clients`);
       setClients(data || []);
     } catch (error) {
       console.error("Error fetching clients:", error);
@@ -121,15 +133,30 @@ export function ClientList({
       }
     };
 
+    // Listen for client saved events
+    const handleClientSaved = (event: CustomEvent) => {
+      console.log("Client list received client-saved event:", event.detail);
+      if (event.detail.clientId) {
+        // Refresh the clients list when a new client is saved
+        fetchClients();
+      }
+    };
+
     window.addEventListener(
       "plan-selected",
       handlePlanSelected as EventListener,
     );
 
+    window.addEventListener("client-saved", handleClientSaved as EventListener);
+
     return () => {
       window.removeEventListener(
         "plan-selected",
         handlePlanSelected as EventListener,
+      );
+      window.removeEventListener(
+        "client-saved",
+        handleClientSaved as EventListener,
       );
     };
   }, []);

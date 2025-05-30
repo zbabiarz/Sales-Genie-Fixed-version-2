@@ -9,9 +9,20 @@ import "./globals.css";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "Insurance Sales Genie - AI-Powered Platform for Insurance Brokers",
+  title: "Insurance Sales Genie AI",
   description:
-    "An intelligent SaaS platform that empowers insurance brokers with AI-driven tools to streamline client matching, improve sales conversations, and access instant product information.",
+    "AI Tools To Help You Close More Deals. Cut Your Workload in Half. Instantly Match Clients with the Right Insurance Plan Without the Headaches.",
+  openGraph: {
+    title: "Insurance Sales Genie AI",
+    description:
+      "AI Tools To Help You Close More Deals. Cut Your Workload in Half. Instantly Match Clients with the Right Insurance Plan Without the Headaches.",
+    images: [
+      "https://storage.googleapis.com/msgsndr/QFjnAi2H2A9Cpxi7l0ri/media/6839e5ba3ddeac5abf36301b.png",
+    ],
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
   icons: {
     icon: "https://storage.googleapis.com/msgsndr/QFjnAi2H2A9Cpxi7l0ri/media/6830c0c8a746514d41995743.png",
     shortcut:

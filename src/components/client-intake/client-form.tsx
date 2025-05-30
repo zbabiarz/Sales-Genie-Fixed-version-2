@@ -26,6 +26,8 @@ import { PlusCircle, Trash2, Loader2 } from "lucide-react";
 import { DependentForm } from "./dependent-form";
 import { InsurancePlansTable } from "./insurance-plans-table";
 import { useSearchParams } from "next/navigation";
+import { toast } from "@/components/ui/use-toast";
+import { useRouter } from "next/navigation";
 
 interface Dependent {
   id: string;
@@ -97,6 +99,7 @@ const US_STATES = [
 
 export function ClientForm() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const clientIdFromUrl = searchParams.get("clientId");
   const supabase = createClient();
   const [activeTab, setActiveTab] = useState("client-info");
@@ -180,7 +183,7 @@ export function ClientForm() {
   };
 
   const handleCustomHealthCondition = (
-    e: React.KeyboardEvent<HTMLInputElement>
+    e: React.KeyboardEvent<HTMLInputElement>,
   ) => {
     if (e.key === "Enter") {
       e.preventDefault(); // Prevent form submission
@@ -219,7 +222,7 @@ export function ClientForm() {
     setClientData((prev) => ({
       ...prev,
       custom_health_conditions: prev.custom_health_conditions.filter(
-        (c) => c !== condition
+        (c) => c !== condition,
       ),
     }));
   };
@@ -228,7 +231,7 @@ export function ClientForm() {
     setClientData((prev) => ({
       ...prev,
       custom_medications: prev.custom_medications.filter(
-        (m) => m !== medication
+        (m) => m !== medication,
       ),
     }));
   };
@@ -259,7 +262,7 @@ export function ClientForm() {
 
   const updateDependent = (id: string, data: Partial<Dependent>) => {
     setDependents((prev) =>
-      prev.map((dep) => (dep.id === id ? { ...dep, ...data } : dep))
+      prev.map((dep) => (dep.id === id ? { ...dep, ...data } : dep)),
     );
   };
 
@@ -302,7 +305,7 @@ export function ClientForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     // Add the age to the URL for filtering
     const age = calculateAge(
-      clientData.date_of_birth || clientData._calculatedDob || ""
+      clientData.date_of_birth || clientData._calculatedDob || "",
     );
     const url = new URL(window.location.href);
     url.searchParams.set("age", age.toString());
@@ -310,6 +313,11 @@ export function ClientForm() {
     e.preventDefault();
     setIsLoading(true);
     setMatchingPlans([]);
+
+    // Log that we're starting the client data saving process
+    console.log(
+      "Starting client data saving process with authentication check",
+    );
 
     // Store the client ID from URL if it exists
     const searchParams = new URLSearchParams(window.location.search);
@@ -323,7 +331,7 @@ export function ClientForm() {
       if (plansError) throw plansError;
 
       console.log(
-        `Fetched ${allPlans?.length || 0} insurance plans from database`
+        `Fetched ${allPlans?.length || 0} insurance plans from database`,
       );
 
       if (allPlans && allPlans.length > 0) {
@@ -352,25 +360,64 @@ export function ClientForm() {
     try {
       const { data: user } = await supabase.auth.getUser();
       const userId = user.user?.id;
+      console.log("Current user ID:", userId);
 
-      if (userId) {
-        // If we have a client ID from URL, use that as the existing client
-        if (clientIdFromUrl) {
-          existingClient = true;
-          existingClientId = clientIdFromUrl;
-          console.log("Using client ID from URL:", clientIdFromUrl);
-        } else {
-          // Otherwise check if client with same name exists
-          const { data: existingClients } = await supabase
+      if (!userId) {
+        console.error("No user ID found. User might not be authenticated.");
+        toast({
+          title: "Authentication Error",
+          description: "You must be logged in to save client data.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      // Double check authentication with a simple query
+      const { data: authCheck, error: authError } = await supabase
+        .from("clients")
+        .select("count")
+        .limit(1);
+
+      if (authError) {
+        console.error("Authentication verification failed:", authError);
+        toast({
+          title: "Authentication Error",
+          description:
+            "Your session may have expired. Please refresh the page and try again.",
+          variant: "destructive",
+        });
+        setIsLoading(false);
+        return;
+      }
+
+      console.log("Authentication verified successfully");
+
+      // If we have a client ID from URL, use that as the existing client
+      if (clientIdFromUrl) {
+        existingClient = true;
+        existingClientId = clientIdFromUrl;
+        console.log("Using client ID from URL:", clientIdFromUrl);
+      } else {
+        // Otherwise check if client with same name exists
+        const { data: existingClients, error: clientCheckError } =
+          await supabase
             .from("clients")
             .select("id")
             .eq("user_id", userId)
             .eq("full_name", clientData.full_name);
 
-          existingClient = existingClients && existingClients.length > 0;
-          if (existingClient && existingClients && existingClients.length > 0) {
-            existingClientId = existingClients[0].id;
-          }
+        if (clientCheckError) {
+          console.error(
+            "Error checking for existing client:",
+            clientCheckError,
+          );
+        }
+
+        existingClient = existingClients && existingClients.length > 0;
+        if (existingClient && existingClients && existingClients.length > 0) {
+          existingClientId = existingClients[0].id;
+          console.log("Found existing client with ID:", existingClientId);
         }
       }
     } catch (error) {
@@ -392,7 +439,7 @@ export function ClientForm() {
           : undefined,
         weight: clientData.weight ? parseFloat(clientData.weight) : undefined,
         age: calculateAge(
-          clientData.date_of_birth || clientData._calculatedDob || ""
+          clientData.date_of_birth || clientData._calculatedDob || "",
         ),
         health_conditions: [
           ...clientData.health_conditions,
@@ -429,7 +476,7 @@ export function ClientForm() {
           "match-insurance-plans",
           {
             body: formattedData,
-          }
+          },
         );
 
         if (error) throw error;
@@ -451,7 +498,7 @@ export function ClientForm() {
 
         console.log(`Total plans found: ${allPlans.length}`);
         const reservePlans = allPlans.filter((plan) =>
-          plan.company_name.includes("Reserve National")
+          plan.company_name.includes("Reserve National"),
         );
         console.log(`Reserve National plans found: ${reservePlans.length}`);
         if (reservePlans.length > 0) {
@@ -465,7 +512,7 @@ export function ClientForm() {
             !plan.available_states.includes(clientData.state)
           ) {
             console.log(
-              `State mismatch: Client state ${clientData.state} not in plan states ${JSON.stringify(plan.available_states)}`
+              `State mismatch: Client state ${clientData.state} not in plan states ${JSON.stringify(plan.available_states)}`,
             );
             return false;
           }
@@ -482,14 +529,14 @@ export function ClientForm() {
             plan.coverage_type === "individual"
           ) {
             console.log(
-              `Filtering out individual-only plan for family: ${plan.product_name}`
+              `Filtering out individual-only plan for family: ${plan.product_name}`,
             );
             return false;
           }
 
           if (clientData.age) {
             console.log(
-              `Checking age eligibility: Client age ${clientData.age}, Plan age range ${plan.age_range || "All Ages"}`
+              `Checking age eligibility: Client age ${clientData.age}, Plan age range ${plan.age_range || "All Ages"}`,
             );
 
             // If plan has a specific age range (not "All Ages" or empty)
@@ -502,7 +549,7 @@ export function ClientForm() {
                 const minAge = parseInt(plan.age_range.replace("+", ""));
                 isEligibleAge = clientData.age >= minAge;
                 console.log(
-                  `Range ${plan.age_range}: minAge=${minAge}, result=${isEligibleAge}`
+                  `Range ${plan.age_range}: minAge=${minAge}, result=${isEligibleAge}`,
                 );
               } else if (plan.age_range.includes("-")) {
                 // For ranges like '18-29'
@@ -510,28 +557,28 @@ export function ClientForm() {
                 isEligibleAge =
                   clientData.age >= minAge && clientData.age <= maxAge;
                 console.log(
-                  `Range ${plan.age_range}: minAge=${minAge}, maxAge=${maxAge}, result=${isEligibleAge}`
+                  `Range ${plan.age_range}: minAge=${minAge}, maxAge=${maxAge}, result=${isEligibleAge}`,
                 );
               }
 
               if (!isEligibleAge) {
                 console.log(
-                  `AGE CHECK: FAILED - Age range mismatch: ${clientData.age} not in ${plan.age_range}`
+                  `AGE CHECK: FAILED - Age range mismatch: ${clientData.age} not in ${plan.age_range}`,
                 );
                 return false;
               }
 
               console.log(
-                `AGE CHECK: PASSED - Client age ${clientData.age} is within plan range ${plan.age_range}`
+                `AGE CHECK: PASSED - Client age ${clientData.age} is within plan range ${plan.age_range}`,
               );
             } else {
               console.log(
-                `AGE CHECK: PASSED - Plan has no specific age range (${plan.age_range || "All Ages"})`
+                `AGE CHECK: PASSED - Plan has no specific age range (${plan.age_range || "All Ages"})`,
               );
             }
           } else {
             console.log(
-              `Age check skipped: Client age not provided, Plan age range ${plan.age_range || "All Ages"}`
+              `Age check skipped: Client age not provided, Plan age range ${plan.age_range || "All Ages"}`,
             );
           }
 
@@ -552,10 +599,10 @@ export function ClientForm() {
                   // or if disqualifying condition contains the client condition
                   const isPartialMatch =
                     disqualifyingConditionLower.includes(
-                      clientConditionLower
+                      clientConditionLower,
                     ) ||
                     clientConditionLower.includes(
-                      disqualifyingConditionLower
+                      disqualifyingConditionLower,
                     ) ||
                     // Split by common separators and check each part
                     disqualifyingConditionLower
@@ -564,20 +611,20 @@ export function ClientForm() {
                         (part) =>
                           part === clientConditionLower ||
                           (part.length > 3 &&
-                            clientConditionLower.includes(part))
+                            clientConditionLower.includes(part)),
                       );
 
                   console.log(
-                    `Partial match check - Client: "${clientConditionLower}" vs Disqualifying: "${disqualifyingConditionLower}" - Match: ${isPartialMatch}`
+                    `Partial match check - Client: "${clientConditionLower}" vs Disqualifying: "${disqualifyingConditionLower}" - Match: ${isPartialMatch}`,
                   );
 
                   return isPartialMatch;
-                }
+                },
               );
 
               if (partialMatch) {
                 console.log(
-                  `HEALTH CONDITIONS CHECK: FAILED - Client has disqualifying condition (partial match): ${condition}`
+                  `HEALTH CONDITIONS CHECK: FAILED - Client has disqualifying condition (partial match): ${condition}`,
                 );
                 return false;
               }
@@ -601,10 +648,10 @@ export function ClientForm() {
             clientData.gender
           ) {
             console.log(
-              `\n***** PLAN BUILD CHART CHECK: ${plan.company_name} - ${plan.product_name} *****`
+              `\n***** PLAN BUILD CHART CHECK: ${plan.company_name} - ${plan.product_name} *****`,
             );
             console.log(
-              `Client weight: ${clientData.weight}, gender: ${clientData.gender}`
+              `Client weight: ${clientData.weight}, gender: ${clientData.gender}`,
             );
 
             let maxWeightInChart = 0;
@@ -623,10 +670,10 @@ export function ClientForm() {
               });
             }
             console.log(
-              `Build chart weight range: ${minWeightInChart} - ${maxWeightInChart} lbs`
+              `Build chart weight range: ${minWeightInChart} - ${maxWeightInChart} lbs`,
             );
             console.log(
-              `Build chart entries: ${plan.build_chart_jsonb?.length || 0}`
+              `Build chart entries: ${plan.build_chart_jsonb?.length || 0}`,
             );
 
             // Ensure weight and height values are properly parsed as numbers
@@ -639,33 +686,33 @@ export function ClientForm() {
               : undefined;
 
             console.log(
-              `Parsed weight: ${weightNum} lbs (raw: ${clientData.weight}, type: ${typeof weightNum})`
+              `Parsed weight: ${weightNum} lbs (raw: ${clientData.weight}, type: ${typeof weightNum})`,
             );
             console.log(
-              `Parsed height: ${heightFeet}ft ${heightInches}in (raw feet: ${clientData.height_feet}, raw inches: ${clientData.height_inches})`
+              `Parsed height: ${heightFeet}ft ${heightInches}in (raw feet: ${clientData.height_feet}, raw inches: ${clientData.height_inches})`,
             );
             console.log(
-              `Legacy height: ${legacyHeight !== undefined ? legacyHeight + " inches" : "not provided"}`
+              `Legacy height: ${legacyHeight !== undefined ? legacyHeight + " inches" : "not provided"}`,
             );
 
             // Perform a quick check against the maximum weight in the chart
             // If weight exceeds the maximum in the chart, we can immediately determine ineligibility
             if (weightNum > maxWeightInChart) {
               console.log(
-                `QUICK CHECK FAILED: Client weight ${weightNum} exceeds maximum chart weight ${maxWeightInChart}`
+                `QUICK CHECK FAILED: Client weight ${weightNum} exceeds maximum chart weight ${maxWeightInChart}`,
               );
               console.log(`***** END PLAN BUILD CHART CHECK *****\n`);
               return false;
             }
 
             console.log(
-              `Quick check - Client weight ${weightNum} vs chart range ${minWeightInChart}-${maxWeightInChart}`
+              `Quick check - Client weight ${weightNum} vs chart range ${minWeightInChart}-${maxWeightInChart}`,
             );
             console.log(
-              `Weight > Max check: ${weightNum} > ${maxWeightInChart} = ${weightNum > maxWeightInChart}`
+              `Weight > Max check: ${weightNum} > ${maxWeightInChart} = ${weightNum > maxWeightInChart}`,
             );
             console.log(
-              `Weight < Min check: ${weightNum} < ${minWeightInChart} = ${weightNum < minWeightInChart}`
+              `Weight < Min check: ${weightNum} < ${minWeightInChart} = ${weightNum < minWeightInChart}`,
             );
 
             const isEligibleBuild = checkBuildEligibility(
@@ -674,22 +721,22 @@ export function ClientForm() {
               heightFeet,
               heightInches,
               legacyHeight,
-              plan.build_chart_jsonb
+              plan.build_chart_jsonb,
             );
 
             console.log(
-              `Build eligibility result for ${plan.company_name} - ${plan.product_name}: ${isEligibleBuild}`
+              `Build eligibility result for ${plan.company_name} - ${plan.product_name}: ${isEligibleBuild}`,
             );
 
             if (!isEligibleBuild) {
               console.log(
-                `BUILD CHART CHECK: FAILED - ${plan.company_name} - ${plan.product_name}: Client weight ${weightNum} outside range for height ${heightFeet}ft ${heightInches}in`
+                `BUILD CHART CHECK: FAILED - ${plan.company_name} - ${plan.product_name}: Client weight ${weightNum} outside range for height ${heightFeet}ft ${heightInches}in`,
               );
               console.log(`***** END PLAN BUILD CHART CHECK *****\n`);
               return false;
             }
             console.log(
-              `BUILD CHART CHECK: PASSED - ${plan.company_name} - ${plan.product_name}`
+              `BUILD CHART CHECK: PASSED - ${plan.company_name} - ${plan.product_name}`,
             );
             console.log(`***** END PLAN BUILD CHART CHECK *****\n`);
           }
@@ -708,10 +755,18 @@ export function ClientForm() {
       try {
         const { data: user } = await supabase.auth.getUser();
         const userId = user.user?.id;
+        console.log("Saving client data for user ID:", userId);
+
+        if (!userId) {
+          console.error("Cannot save client data: No user ID available");
+          setIsLoading(false);
+          return;
+        }
 
         let clientRecord = null;
         if (existingClient && existingClientId) {
           // Update existing client
+          console.log("Updating existing client with ID:", existingClientId);
           const { data: updatedClientRecord, error: updateError } =
             await supabase
               .from("clients")
@@ -720,6 +775,7 @@ export function ClientForm() {
                 date_of_birth:
                   clientData.date_of_birth || clientData._calculatedDob || "",
                 state: clientData.state,
+                zip_code: clientData.zip_code || "00000", // Use provided zip code if available
                 height: clientData.height
                   ? parseFloat(clientData.height)
                   : null,
@@ -740,16 +796,36 @@ export function ClientForm() {
                   ...clientData.medications,
                   ...clientData.custom_medications,
                 ],
+                updated_at: new Date().toISOString(), // Add timestamp for when record was updated
               })
               .eq("id", existingClientId)
               .select()
               .single();
 
-          if (updateError) throw updateError;
+          if (updateError) {
+            console.error("Error updating client:", updateError);
+            throw updateError;
+          }
           clientRecord = updatedClientRecord;
-          console.log("Updated existing client:", clientRecord);
-        } else if (userId) {
+          console.log("Successfully updated existing client:", clientRecord);
+
+          // Show success message to user
+          toast({
+            title: "Client Updated",
+            description:
+              "Client information has been updated and can be accessed in the Client Management section.",
+          });
+        } else {
           // Create new client
+          console.log("Creating new client for user ID:", userId);
+          console.log("Client data to save:", {
+            full_name: clientData.full_name,
+            gender: clientData.gender,
+            date_of_birth:
+              clientData.date_of_birth || clientData._calculatedDob || "",
+            state: clientData.state,
+          });
+
           const { data: newClientRecord, error: clientError } = await supabase
             .from("clients")
             .insert({
@@ -759,7 +835,7 @@ export function ClientForm() {
               date_of_birth:
                 clientData.date_of_birth || clientData._calculatedDob || "",
               state: clientData.state,
-              zip_code: "00000",
+              zip_code: clientData.zip_code || "00000", // Use provided zip code if available
               height: clientData.height ? parseFloat(clientData.height) : null,
               height_feet: clientData.height_feet
                 ? parseFloat(clientData.height_feet)
@@ -780,20 +856,44 @@ export function ClientForm() {
             .select()
             .single();
 
-          if (clientError) throw clientError;
+          if (clientError) {
+            console.error("Error creating client:", clientError);
+            throw clientError;
+          }
           clientRecord = newClientRecord;
-          console.log("Created new client:", clientRecord);
-        }
+          console.log("Successfully created new client:", clientRecord);
 
-        if (userId && clientRecord) {
-          await supabase.from("user_activity").insert({
-            user_id: userId,
-            activity_type: "client_intake",
-            details: { client_id: clientRecord?.id },
+          // Show success message to user
+          toast({
+            title: "Client Saved",
+            description:
+              "Client information has been saved and can be accessed in the Client Management section.",
           });
         }
 
+        if (userId && clientRecord) {
+          console.log(
+            "Recording user activity for client ID:",
+            clientRecord.id,
+          );
+          const { error: activityError } = await supabase
+            .from("user_activity")
+            .insert({
+              user_id: userId,
+              activity_type: "client_intake",
+              details: { client_id: clientRecord?.id },
+            });
+
+          if (activityError) {
+            console.error("Error recording user activity:", activityError);
+          } else {
+            console.log("Successfully recorded user activity");
+          }
+        }
+
         if (dependents.length > 0 && clientRecord) {
+          console.log("Processing dependents for client ID:", clientRecord.id);
+
           // First delete existing dependents for this client
           const { error: deleteError } = await supabase
             .from("dependents")
@@ -802,6 +902,8 @@ export function ClientForm() {
 
           if (deleteError) {
             console.error("Error deleting existing dependents:", deleteError);
+          } else {
+            console.log("Successfully deleted existing dependents");
           }
 
           // Then insert new dependents
@@ -824,21 +926,101 @@ export function ClientForm() {
             medications: [...dep.medications, ...dep.custom_medications],
           }));
 
-          const { error: insertError } = await supabase
-            .from("dependents")
-            .insert(dependentsToInsert);
+          console.log("Inserting dependents:", dependentsToInsert.length);
 
-          if (insertError) throw insertError;
+          const { data: insertedDependents, error: insertError } =
+            await supabase
+              .from("dependents")
+              .insert(dependentsToInsert)
+              .select();
+
+          if (insertError) {
+            console.error("Error inserting dependents:", insertError);
+            throw insertError;
+          } else {
+            console.log(
+              "Successfully inserted dependents:",
+              insertedDependents?.length || 0,
+            );
+          }
         }
 
         // Update URL with client ID for future reference
         if (clientRecord && clientRecord.id) {
+          console.log("Updating URL with client ID:", clientRecord.id);
           const url = new URL(window.location.href);
           url.searchParams.set("clientId", clientRecord.id);
           window.history.replaceState({}, "", url);
+
+          // Add a button to view client in management section
+          const viewClientButton = document.createElement("button");
+          viewClientButton.textContent = "View Client in Management";
+          viewClientButton.className =
+            "mt-4 bg-teal-600 hover:bg-teal-700 text-white py-2 px-4 rounded";
+          viewClientButton.onclick = () => {
+            router.push("/dashboard?tab=clients");
+          };
+
+          // Find the results tab content and append the button
+          setTimeout(() => {
+            const resultsTab = document.querySelector('[data-value="results"]');
+            if (resultsTab) {
+              // Check if button already exists to avoid duplicates
+              const existingButton = resultsTab.querySelector(
+                ".flex.justify-center.mt-4",
+              );
+              if (!existingButton) {
+                const buttonContainer = document.createElement("div");
+                buttonContainer.className = "flex justify-center mt-4";
+                buttonContainer.appendChild(viewClientButton);
+                resultsTab.appendChild(buttonContainer);
+                console.log("Added view client button to results tab");
+              }
+            } else {
+              console.log("Could not find results tab to add button");
+            }
+          }, 500);
+
+          // Dispatch an event to notify other components that client data has been saved
+          try {
+            const clientSavedEvent = new CustomEvent("client-saved", {
+              detail: { clientId: clientRecord.id },
+            });
+            window.dispatchEvent(clientSavedEvent);
+            console.log(
+              "Dispatched client-saved event with ID:",
+              clientRecord.id,
+            );
+          } catch (eventError) {
+            console.error("Error dispatching client-saved event:", eventError);
+          }
+
+          // Force a navigation to refresh the client management section
+          if (window.location.pathname.includes("/dashboard")) {
+            const currentTab = new URLSearchParams(window.location.search).get(
+              "tab",
+            );
+            if (currentTab !== "clients") {
+              console.log("Setting URL to clients tab");
+              const newUrl = `/dashboard?tab=clients`;
+              window.history.pushState({}, "", newUrl);
+            } else {
+              // If already on clients tab, force a refresh
+              console.log("Already on clients tab, forcing refresh");
+              fetchClients &&
+                typeof fetchClients === "function" &&
+                fetchClients();
+            }
+          }
         }
       } catch (dbError) {
         console.error("Error saving client data:", dbError);
+        toast({
+          title: "Error Saving Client",
+          description:
+            "There was a problem saving the client data. Please try again.",
+          variant: "destructive",
+        });
       }
     } catch (error) {
       console.error("Error submitting form:", error);
@@ -969,7 +1151,7 @@ export function ClientForm() {
                             const dob = new Date(
                               birthYear,
                               today.getMonth(),
-                              today.getDate()
+                              today.getDate(),
                             );
                             const dobString = dob.toISOString().split("T")[0];
                             setClientData((prev) => ({
@@ -1165,7 +1347,7 @@ export function ClientForm() {
                               ×
                             </button>
                           </div>
-                        )
+                        ),
                       )}
                     </div>
                   )}
@@ -1221,7 +1403,7 @@ export function ClientForm() {
                               ×
                             </button>
                           </div>
-                        )
+                        ),
                       )}
                     </div>
                   )}
