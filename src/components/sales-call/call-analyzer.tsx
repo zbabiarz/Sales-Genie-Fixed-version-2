@@ -261,7 +261,7 @@ export function CallAnalyzer() {
 
       // For large files, we need to set a longer timeout
       let controller = new AbortController();
-      let timeoutId = setTimeout(() => controller.abort(), 300000); // 5 minute timeout for larger files
+      let timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout for larger files
 
       // Send through our proxy endpoint to avoid CORS issues
       let proxyEndpoint = "/api/proxy-webhook";
@@ -290,12 +290,22 @@ export function CallAnalyzer() {
 
       clearTimeout(timeoutId);
 
-      // Even if the response is not OK, we'll try to process it
-      // The proxy will handle errors and return mock data if needed
+      // Handle different error responses
       if (!webhookResponse.ok) {
         console.warn(
           `Webhook response not OK: ${webhookResponse.status} ${webhookResponse.statusText}`,
         );
+
+        if (webhookResponse.status === 413) {
+          throw new Error(
+            "File too large. Please use a file smaller than 100MB.",
+          );
+        } else if (webhookResponse.status === 408) {
+          throw new Error(
+            "Request timeout. Please try with a smaller file or try again later.",
+          );
+        }
+
         console.log("Continuing to process response despite error status");
       }
 
@@ -496,10 +506,21 @@ export function CallAnalyzer() {
       }
     } catch (error) {
       console.error("Error processing media file:", error);
-      // Show a more informative message about the processing status
-      alert(
-        `Your call is being processed through n8n and may take up to 3 minutes to complete. Please try again in a few minutes.`,
-      );
+
+      // Show specific error messages based on the error type
+      const errorMessage = (error as Error).message;
+      if (errorMessage.includes("File too large")) {
+        alert("File too large. Please use a file smaller than 100MB.");
+      } else if (errorMessage.includes("timeout")) {
+        alert(
+          "Request timeout. Please try with a smaller file or try again later.",
+        );
+      } else {
+        alert(
+          `Your call is being processed and may take up to 10 minutes to complete. Please try again in a few minutes.`,
+        );
+      }
+
       const mockData = getMockAnalysisData();
       return {
         transcript: mockData.transcript,

@@ -4,6 +4,8 @@ export const runtime = "nodejs";
 
 // Configure the maximum request size
 export const maxDuration = 300; // 5 minutes
+// Increase body size limit for large files
+export const maxBodySize = 100 * 1024 * 1024; // 100MB
 // Note: bodyParser is not supported in App Router, using Next.js built-in body parsing
 
 // Helper function to get mock analysis data
@@ -75,6 +77,9 @@ export async function POST(request: Request) {
       throw new Error("No file found in form data");
     }
 
+    console.log("File size:", file instanceof File ? file.size : "unknown");
+    console.log("File type:", file instanceof File ? file.type : "unknown");
+
     // Make sure binaryPropertyName is set correctly
     if (!formData.has("binaryPropertyName")) {
       console.log("Adding binaryPropertyName parameter");
@@ -86,12 +91,14 @@ export async function POST(request: Request) {
     const response = await fetch(targetUrl, {
       method: "POST",
       body: formData,
+      // Add timeout for large files
+      signal: AbortSignal.timeout(300000), // 5 minutes
     });
 
     if (!response.ok) {
       // Don't read the response body here, as we'll handle it below
       console.error(
-        `Webhook error: Status ${response.status} ${response.statusText}`
+        `Webhook error: Status ${response.status} ${response.statusText}`,
       );
       console.log("Continuing to process response despite error status");
       // Don't throw an error here, we'll try to handle the response anyway
@@ -124,7 +131,7 @@ export async function POST(request: Request) {
           console.log("Forwarding analysis to:", analysisWebhookUrl);
           console.log(
             "Analysis data being sent:",
-            JSON.stringify(analysisData)
+            JSON.stringify(analysisData),
           );
 
           const analysisResponse = await fetch(analysisWebhookUrl, {
@@ -138,7 +145,7 @@ export async function POST(request: Request) {
           if (!analysisResponse.ok) {
             console.error(
               "Error forwarding analysis:",
-              await analysisResponse.text()
+              await analysisResponse.text(),
             );
           } else {
             console.log("Analysis forwarded successfully");
@@ -177,20 +184,42 @@ export async function POST(request: Request) {
   } catch (error) {
     console.error("Error in proxy function:", error);
 
-    // Return error message
+    // Check if it's a timeout or size error
+    let errorMessage = String((error as Error).message);
+    let statusCode = 500;
+
+    if (
+      errorMessage.includes("413") ||
+      errorMessage.includes("Content Too Large")
+    ) {
+      errorMessage = "File too large. Please use a file smaller than 100MB.";
+      statusCode = 413;
+    } else if (
+      errorMessage.includes("timeout") ||
+      errorMessage.includes("AbortError")
+    ) {
+      errorMessage =
+        "Request timeout. Please try with a smaller file or try again later.";
+      statusCode = 408;
+    }
+
+    // Return error message with mock data as fallback
+    const mockData = getMockAnalysisData();
     return NextResponse.json(
       {
-        error: `Error processing request: ${String((error as Error).message)}`,
+        error: `Error processing request: ${errorMessage}`,
+        fallback: true,
+        ...mockData,
       },
       {
-        status: 500,
+        status: statusCode,
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
           "Access-Control-Allow-Headers": "Content-Type, Authorization",
           "Content-Type": "application/json",
         },
-      }
+      },
     );
   }
 }
