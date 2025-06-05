@@ -213,9 +213,17 @@ export function CallAnalyzer() {
       console.log("File is very large, this may take longer to process");
       // We'll still try to process it, but warn the user
       alert(
-        "This file is very large (over 50MB). Processing may take longer and might fail if the server has strict limits.",
+        "This file is very large (over 50MB). Processing may take longer and might fail. Consider using a smaller file for better results.",
       );
     }
+
+    // Log file details for debugging
+    console.log("Processing file:", {
+      name: mediaFile.name,
+      size: mediaFile.size,
+      type: mediaFile.type,
+      sizeInMB: (mediaFile.size / (1024 * 1024)).toFixed(2) + "MB",
+    });
 
     // If useMockData is true, immediately return mock data without attempting API call
     if (useMockData) {
@@ -261,7 +269,7 @@ export function CallAnalyzer() {
 
       // For large files, we need to set a longer timeout
       let controller = new AbortController();
-      let timeoutId = setTimeout(() => controller.abort(), 600000); // 10 minute timeout for larger files
+      let timeoutId = setTimeout(() => controller.abort(), 900000); // 15 minute timeout for larger files
 
       // Send through our proxy endpoint to avoid CORS issues
       let proxyEndpoint = "/api/proxy-webhook";
@@ -297,13 +305,21 @@ export function CallAnalyzer() {
         );
 
         if (webhookResponse.status === 413) {
+          const responseText = await webhookResponse.text();
+          console.error("413 error response:", responseText);
           throw new Error(
-            "File too large. Please use a file smaller than 100MB.",
+            "File too large for the server. Please use a file smaller than 50MB. Current file size: " +
+              (mediaFile.size / (1024 * 1024)).toFixed(2) +
+              "MB",
           );
         } else if (webhookResponse.status === 408) {
           throw new Error(
             "Request timeout. Please try with a smaller file or try again later.",
           );
+        } else if (webhookResponse.status >= 500) {
+          const responseText = await webhookResponse.text();
+          console.error("Server error response:", responseText);
+          throw new Error("Server error occurred. Please try again later.");
         }
 
         console.log("Continuing to process response despite error status");

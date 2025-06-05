@@ -8,6 +8,15 @@ export const maxDuration = 300; // 5 minutes
 export const maxBodySize = 100 * 1024 * 1024; // 100MB
 // Note: bodyParser is not supported in App Router, using Next.js built-in body parsing
 
+// Add body size parser configuration
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "100mb",
+    },
+  },
+};
+
 // Helper function to get mock analysis data
 const getMockAnalysisData = () => {
   return {
@@ -47,6 +56,13 @@ export async function POST(request: Request) {
       request.headers.get("X-Target-Url") ||
       "https://effortlessai.app.n8n.cloud/webhook/b786cb3c-3398-4d8f-b22e-cf2c78e95eaf";
     console.log("Proxying request to:", targetUrl);
+
+    // Log request details for debugging
+    console.log("Request method:", request.method);
+    console.log(
+      "Request headers:",
+      Object.fromEntries(request.headers.entries()),
+    );
 
     // Clone the request to read the body
     const clonedRequest = request.clone();
@@ -92,7 +108,7 @@ export async function POST(request: Request) {
       method: "POST",
       body: formData,
       // Add timeout for large files
-      signal: AbortSignal.timeout(300000), // 5 minutes
+      signal: AbortSignal.timeout(600000), // 10 minutes for large files
     });
 
     if (!response.ok) {
@@ -190,9 +206,11 @@ export async function POST(request: Request) {
 
     if (
       errorMessage.includes("413") ||
-      errorMessage.includes("Content Too Large")
+      errorMessage.includes("Content Too Large") ||
+      errorMessage.includes("PayloadTooLargeError")
     ) {
-      errorMessage = "File too large. Please use a file smaller than 100MB.";
+      errorMessage =
+        "File too large. The server has a file size limit. Please use a file smaller than 50MB.";
       statusCode = 413;
     } else if (
       errorMessage.includes("timeout") ||
@@ -201,6 +219,12 @@ export async function POST(request: Request) {
       errorMessage =
         "Request timeout. Please try with a smaller file or try again later.";
       statusCode = 408;
+    } else if (
+      errorMessage.includes("CORS") ||
+      errorMessage.includes("blocked")
+    ) {
+      errorMessage = "Network error. Please try again.";
+      statusCode = 500;
     }
 
     // Return error message with mock data as fallback
