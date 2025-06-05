@@ -11,16 +11,6 @@ export const maxBodySize = 100 * 1024 * 1024; // 100MB
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-// Configure request size limits for App Router
-export const config = {
-  api: {
-    bodyParser: {
-      sizeLimit: "100mb",
-    },
-    responseLimit: false,
-  },
-};
-
 // Helper function to get mock analysis data
 const getMockAnalysisData = () => {
   return {
