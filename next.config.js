@@ -5,6 +5,17 @@ const nextConfig = {
   experimental: {
     serverComponentsExternalPackages: ["sharp"],
   },
+  // Configure body size limits for API routes
+  api: {
+    bodyParser: {
+      sizeLimit: "100mb",
+    },
+    responseLimit: "100mb",
+  },
+  // Configure server request size limits
+  serverRuntimeConfig: {
+    maxRequestSize: "100mb",
+  },
   images: {
     domains: ["storage.googleapis.com"],
   },

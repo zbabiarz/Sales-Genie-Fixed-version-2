@@ -4,9 +4,22 @@ export const runtime = "nodejs";
 
 // Configure the maximum request size
 export const maxDuration = 300; // 5 minutes
-// Increase body size limit for large files
+// Increase body size limit for large files - Next.js App Router
 export const maxBodySize = 100 * 1024 * 1024; // 100MB
-// Note: bodyParser is not supported in App Router, using Next.js built-in body parsing
+
+// Configure Next.js App Router specific settings
+export const dynamic = "force-dynamic";
+export const fetchCache = "force-no-store";
+
+// Configure request size limits for App Router
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: "100mb",
+    },
+    responseLimit: false,
+  },
+};
 
 // Helper function to get mock analysis data
 const getMockAnalysisData = () => {
