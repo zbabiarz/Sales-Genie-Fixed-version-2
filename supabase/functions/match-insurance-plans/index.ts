@@ -10,8 +10,11 @@ interface ClientData {
   zip_code: string;
   state: string;
   height?: number;
+  height_feet?: number;
+  height_inches?: number;
   weight?: number;
   age?: number;
+  gender?: string;
   health_conditions: string[];
   medications: string[];
   coverage_type?: "individual" | "family";
@@ -32,6 +35,7 @@ const corsHeaders = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Headers":
     "authorization, x-client-info, apikey, content-type",
+  "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
 };
 
 // Function to check if a client's age is within a plan's age range
@@ -158,10 +162,27 @@ function checkBuildEligibility(
   return isEligible;
 }
 
+// Helper function to determine allowed coverage types
+function getAllowedCoverageTypes(dependents: Dependent[] = []) {
+  const hasSpouse = dependents.some((dep) => dep.relationship === "spouse");
+  const numDependents = dependents.filter((dep) => dep.relationship !== "spouse").length;
+
+  if (!hasSpouse && numDependents === 0) {
+    return ["Employee", "Individual", "Child Only", "Any size"];
+  } else if (!hasSpouse && numDependents > 0) {
+    return ["Employee + Child(ren)", "Individual and Child(ren)", "Any size"];
+  } else if (hasSpouse && numDependents === 0) {
+    return ["Employee + Spouse", "Individual and Spouse", "Any size"];
+  } else if (hasSpouse && numDependents > 0) {
+    return ["Family", "Individual and Family", "Any size"];
+  }
+  return [];
+}
+
 serve(async (req) => {
   // Handle CORS preflight request
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders });
+    return new Response("ok", { status: 200, headers: corsHeaders });
   }
 
   try {
@@ -178,8 +199,8 @@ serve(async (req) => {
     if (
       !clientData.full_name ||
       !clientData.date_of_birth ||
-      !clientData.state ||
-      !clientData.zip_code
+      !clientData.state
+      // zip_code is now optional
     ) {
       return new Response(
         JSON.stringify({ error: "Missing required fields" }),
@@ -214,7 +235,13 @@ serve(async (req) => {
     }
 
     // Filter plans based on client data
+    const allowedCoverageTypes = getAllowedCoverageTypes(clientData.dependents);
     const matchingPlans = allPlans.filter((plan) => {
+      // Filter by allowed coverage types first
+      if (allowedCoverageTypes.length > 0 && !allowedCoverageTypes.includes(plan.coverage_type)) {
+        return false;
+      }
+
       // Check state availability
       if (
         plan.available_states &&
@@ -231,6 +258,7 @@ serve(async (req) => {
       if (
         plan.available_zip_codes &&
         plan.available_zip_codes.length > 0 &&
+        clientData.zip_code && // Only check if zip_code is present
         !plan.available_zip_codes.includes(clientData.zip_code)
       ) {
         return false;
@@ -425,11 +453,28 @@ serve(async (req) => {
         console.log(`Checking build chart for ${plan.product_name}`);
 
         // Use either the new height fields or legacy height
-        const heightFeet = clientData.height_feet || 0;
-        const heightInches = clientData.height_inches || 0;
+        const heightFeet = typeof clientData.height_feet === 'number' ? clientData.height_feet : 0;
+        const heightInches = typeof clientData.height_inches === 'number' ? clientData.height_inches : 0;
         const legacyHeight = clientData.height
           ? parseFloat(String(clientData.height))
           : undefined;
+
+        // Parse weight as number
+        const weightNum = parseFloat(String(clientData.weight)) || 0;
+
+        // Find max and min weight in the build chart
+        let maxWeightInChart = 0;
+        let minWeightInChart = Infinity;
+        if (Array.isArray(plan.build_chart_jsonb)) {
+          plan.build_chart_jsonb.forEach((entry) => {
+            if (entry.max_weight > maxWeightInChart) {
+              maxWeightInChart = entry.max_weight;
+            }
+            if (entry.min_weight < minWeightInChart) {
+              minWeightInChart = entry.min_weight;
+            }
+          });
+        }
 
         console.log(
           `Before eligibility check - weight: ${weightNum} (${typeof weightNum}), height: ${heightFeet}ft ${heightInches}in`,

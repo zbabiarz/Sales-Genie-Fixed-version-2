@@ -302,6 +302,28 @@ export function ClientForm() {
     return false;
   };
 
+  // Helper function to determine allowed coverage types
+  function getAllowedCoverageTypes(dependents: Dependent[]) {
+    const hasSpouse = dependents.some((dep) => dep.relationship === "spouse");
+    const numDependents = dependents.filter((dep) => dep.relationship !== "spouse").length;
+
+    if (!hasSpouse && numDependents === 0) {
+      // No Dependent, No Spouse
+      return ["Employee", "Individual", "Child Only", "Any size"];
+    } else if (!hasSpouse && numDependents > 0) {
+      // Yes Dependent, No Spouse
+      return ["Employee + Child(ren)", "Individual and Child(ren)", "Any size"];
+    } else if (hasSpouse && numDependents === 0) {
+      // No Dependent, Yes Spouse
+      return ["Employee + Spouse", "Individual and Spouse", "Any size"];
+    } else if (hasSpouse && numDependents > 0) {
+      // Yes Dependent, Yes Spouse
+      return ["Family", "Individual and Family", "Any size"];
+    }
+    // Fallback: show all
+    return [];
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     // Add the age to the URL for filtering
     const age = calculateAge(
@@ -335,9 +357,11 @@ export function ClientForm() {
       );
 
       if (allPlans && allPlans.length > 0) {
-        const filteredPlans = allPlans.filter((plan) => {
-          return true;
-        });
+        // Filter plans by allowed coverage types first
+        const allowedCoverageTypes = getAllowedCoverageTypes(dependents);
+        const filteredPlans = allPlans.filter((plan) =>
+          allowedCoverageTypes.includes(plan.coverage_type)
+        );
 
         const plansWithStatus = filteredPlans.map((plan) => ({
           ...plan,
@@ -473,7 +497,7 @@ export function ClientForm() {
 
       try {
         const { data, error } = await supabase.functions.invoke(
-          "match-insurance-plans",
+          "supabase-functions-match-insurance-plans",
           {
             body: formattedData,
           },
@@ -486,7 +510,7 @@ export function ClientForm() {
           eligibility_status: "eligible",
         }));
 
-        setMatchingPlans(plansWithStatus);
+        // setMatchingPlans(plansWithStatus);
       } catch (edgeFunctionError) {
         console.error("Edge function error:", edgeFunctionError);
 
@@ -994,24 +1018,6 @@ export function ClientForm() {
           } catch (eventError) {
             console.error("Error dispatching client-saved event:", eventError);
           }
-
-          // Force a navigation to refresh the client management section
-          if (window.location.pathname.includes("/dashboard")) {
-            const currentTab = new URLSearchParams(window.location.search).get(
-              "tab",
-            );
-            if (currentTab !== "clients") {
-              console.log("Setting URL to clients tab");
-              const newUrl = `/dashboard?tab=clients`;
-              window.history.pushState({}, "", newUrl);
-            } else {
-              // If already on clients tab, force a refresh
-              console.log("Already on clients tab, forcing refresh");
-              fetchClients &&
-                typeof fetchClients === "function" &&
-                fetchClients();
-            }
-          }
         }
       } catch (dbError) {
         console.error("Error saving client data:", dbError);
@@ -1049,6 +1055,17 @@ export function ClientForm() {
     setShowResults(false);
     setActiveTab("client-info");
     setUseAgeInput(false);
+  };
+
+  const handleTabChange = (tab: string) => {
+    setActiveTab(tab);
+    if (tab === "client-info") {
+      // Always remove clientId and age from the URL, even if already on Intake
+      const url = new URL(window.location.href);
+      url.searchParams.delete("clientId");
+      url.searchParams.delete("age");
+      window.history.replaceState({}, "", url);
+    }
   };
 
   return (
@@ -1303,11 +1320,10 @@ export function ClientForm() {
                         onClick={() =>
                           handleHealthConditionToggle(condition.name)
                         }
-                        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-                          clientData.health_conditions.includes(condition.name)
-                            ? "bg-green-100 text-green-800 border border-green-300"
-                            : "bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200"
-                        }`}
+                        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${clientData.health_conditions.includes(condition.name)
+                          ? "bg-green-100 text-green-800 border border-green-300"
+                          : "bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200"
+                          }`}
                       >
                         {condition.name}
                       </button>
@@ -1361,11 +1377,10 @@ export function ClientForm() {
                         key={medication.id}
                         type="button"
                         onClick={() => handleMedicationToggle(medication.name)}
-                        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
-                          clientData.medications.includes(medication.name)
-                            ? "bg-green-100 text-green-800 border border-green-300"
-                            : "bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200"
-                        }`}
+                        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${clientData.medications.includes(medication.name)
+                          ? "bg-green-100 text-green-800 border border-green-300"
+                          : "bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200"
+                          }`}
                       >
                         {medication.name}
                       </button>
@@ -1510,7 +1525,7 @@ export function ClientForm() {
                 <Button
                   type="button"
                   variant="outline"
-                  onClick={() => setActiveTab("client-info")}
+                  onClick={() => handleTabChange("client-info")}
                 >
                   Back
                 </Button>

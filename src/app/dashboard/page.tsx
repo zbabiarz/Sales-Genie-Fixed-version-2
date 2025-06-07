@@ -102,7 +102,16 @@ export default function Dashboard() {
                 return (
                   <Tabs
                     value={activeTab}
-                    onValueChange={setActiveTab}
+                    onValueChange={(tab) => {
+                      setActiveTab(tab);
+                      if (tab !== "intake") {
+                        // Remove clientId and age from the URL when leaving Intake tab
+                        const url = new URL(window.location.href);
+                        url.searchParams.delete("clientId");
+                        url.searchParams.delete("age");
+                        window.history.replaceState({}, "", url);
+                      }
+                    }}
                     className="w-full"
                   >
                     <TabsList className="grid w-full grid-cols-4 mb-8 overflow-x-auto">

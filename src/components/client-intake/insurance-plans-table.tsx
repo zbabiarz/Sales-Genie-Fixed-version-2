@@ -555,6 +555,9 @@ export function InsurancePlansTable({
                       <ArrowUpDown className="h-3 w-3" />
                     </Button>
                   </TableHead>
+                  <TableHead>
+                    Coverage Type
+                  </TableHead>
                   <TableHead className="text-right">
                     <Button
                       variant="ghost"
@@ -580,10 +583,10 @@ export function InsurancePlansTable({
                       <TableCell>
                         <div>
                           <div>{plan.product_name}</div>
-                          {/* Removed the duplicate product_benefits display here */}
                         </div>
                       </TableCell>
                       <TableCell>{plan.product_category}</TableCell>
+                      <TableCell>{plan.coverage_type || "N/A"}</TableCell>
                       <TableCell className="text-right">
                         $
                         {plan.product_price
@@ -810,6 +813,9 @@ export function InsurancePlansTable({
                       <ArrowUpDown className="h-3 w-3" />
                     </Button>
                   </TableHead>
+                  <TableHead>
+                    Coverage Type
+                  </TableHead>
                   <TableHead className="text-right">
                     <Button
                       variant="ghost"
@@ -838,6 +844,7 @@ export function InsurancePlansTable({
                         </div>
                       </TableCell>
                       <TableCell>{plan.product_category}</TableCell>
+                      <TableCell>{plan.coverage_type || "N/A"}</TableCell>
                       <TableCell className="text-right">
                         $
                         {plan.product_price
@@ -1059,6 +1066,9 @@ export function InsurancePlansTable({
                       <ArrowUpDown className="h-3 w-3" />
                     </Button>
                   </TableHead>
+                  <TableHead>
+                    Coverage Type
+                  </TableHead>
                   <TableHead className="text-right">
                     <Button
                       variant="ghost"
@@ -1084,10 +1094,10 @@ export function InsurancePlansTable({
                       <TableCell>
                         <div>
                           <div>{plan.product_name}</div>
-                          {/* Removed the duplicate product_benefits display here */}
                         </div>
                       </TableCell>
                       <TableCell>{plan.product_category}</TableCell>
+                      <TableCell>{plan.coverage_type || "N/A"}</TableCell>
                       <TableCell className="text-right">
                         $
                         {plan.product_price
