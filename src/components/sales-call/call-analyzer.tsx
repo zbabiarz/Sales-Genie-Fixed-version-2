@@ -245,12 +245,12 @@ export function CallAnalyzer() {
     userId: string | null = null,
   ): Promise<{ transcript?: string; analysis: CallAnalysis }> => {
     // Check file size and warn user but still process
-    if (mediaFile.size > 50 * 1024 * 1024) {
-      // 50MB soft limit
-      console.log("File is very large, this may take longer to process");
+    if (mediaFile.size > 25 * 1024 * 1024) {
+      // 25MB soft limit
+      console.log("File is large, this may take longer to process");
       // We'll still try to process it, but warn the user
       alert(
-        "This file is very large (over 50MB). Processing may take longer and might fail. Consider using a smaller file for better results.",
+        "This file is large (over 25MB). Processing may take longer and might fail. Consider using a smaller file for better results.",
       );
     }
 
@@ -306,7 +306,7 @@ export function CallAnalyzer() {
 
       // For large files, we need to set a longer timeout
       let controller = new AbortController();
-      let timeoutId = setTimeout(() => controller.abort(), 900000); // 15 minute timeout for larger files
+      let timeoutId = setTimeout(() => controller.abort(), 270000); // 4.5 minute timeout to stay under function limit
 
       // Send through our proxy endpoint to avoid CORS issues
       let proxyEndpoint = "/api/proxy-webhook";

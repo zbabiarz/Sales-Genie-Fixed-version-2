@@ -110,7 +110,7 @@ export async function POST(request: Request) {
       method: "POST",
       body: formData,
       // Add timeout for large files
-      signal: AbortSignal.timeout(600000), // 10 minutes for large files
+      signal: AbortSignal.timeout(280000), // 4 minutes 40 seconds (under function limit)
     });
 
     if (!response.ok) {
@@ -223,7 +223,7 @@ export async function POST(request: Request) {
       errorMessage.includes("PayloadTooLargeError")
     ) {
       errorMessage =
-        "File too large. The server has a file size limit. Please use a file smaller than 50MB.";
+        "File too large. The server has a file size limit. Please use a file smaller than 25MB.";
       statusCode = 413;
     } else if (
       errorMessage.includes("timeout") ||
