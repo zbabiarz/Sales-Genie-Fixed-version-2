@@ -4,8 +4,12 @@ const nextConfig = {
   // Configure API routes
   experimental: {
     serverComponentsExternalPackages: ["sharp"],
+    // Configure body size limits for App Router
+    serverActions: {
+      bodySizeLimit: "100mb",
+    },
   },
-  // Configure body size limits for API routes
+  // Configure body size limits for API routes (Pages Router)
   api: {
     bodyParser: {
       sizeLimit: "100mb",

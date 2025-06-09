@@ -19,16 +19,24 @@ export function SubscriptionCheck({
   useEffect(() => {
     const checkSubscription = async () => {
       const supabase = createClient();
-      const { data } = await supabase.auth.getUser();
-
-      if (!data.user) {
-        router.push("/sign-in");
-        return;
-      }
 
       try {
+        const { data, error } = await supabase.auth.getUser();
+
+        // Handle authentication errors (expired/invalid refresh token)
+        if (error) {
+          console.log("Authentication error:", error.message);
+          router.push("/sign-in");
+          return;
+        }
+
+        if (!data.user) {
+          router.push("/sign-in");
+          return;
+        }
+
         // Check if user has an active subscription
-        const { data: subscription, error } = await supabase
+        const { data: subscription, error: subscriptionError } = await supabase
           .from("subscriptions")
           .select("*")
           .eq("user_id", data.user.id)
@@ -46,8 +54,8 @@ export function SubscriptionCheck({
         }
       } catch (error) {
         console.error("Error checking subscription:", error);
-        // Redirect to pricing page if subscription check fails
-        router.push(redirectTo);
+        // Redirect to sign-in page for any authentication-related errors
+        router.push("/sign-in");
       }
     };
 

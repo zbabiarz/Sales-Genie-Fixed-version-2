@@ -10,6 +10,7 @@ Deno.serve(async (req) => {
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers":
           "authorization, x-client-info, apikey, content-type, x-target-url",
+        "Access-Control-Allow-Credentials": "true",
         "Access-Control-Max-Age": "86400",
       },
     });
@@ -98,6 +99,7 @@ Deno.serve(async (req) => {
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers":
           "authorization, x-client-info, apikey, content-type, x-target-url",
+        "Access-Control-Allow-Credentials": "true",
         "Content-Type": "application/json",
         "Access-Control-Max-Age": "86400",
       },
@@ -111,6 +113,7 @@ Deno.serve(async (req) => {
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
         "Access-Control-Allow-Headers":
           "authorization, x-client-info, apikey, content-type, x-target-url",
+        "Access-Control-Allow-Credentials": "true",
         "Content-Type": "application/json",
         "Access-Control-Max-Age": "86400",
       },

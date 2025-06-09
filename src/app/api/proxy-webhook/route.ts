@@ -4,12 +4,18 @@ export const runtime = "nodejs";
 
 // Configure the maximum request size
 export const maxDuration = 300; // 5 minutes
-// Increase body size limit for large files - Next.js App Router
-export const maxBodySize = 100 * 1024 * 1024; // 100MB
 
 // Configure Next.js App Router specific settings
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
+
+// Configure body parser for large files
+export const bodyParser = {
+  sizeLimit: "100mb",
+};
+
+// Configure response size limit
+export const responseLimit = "100mb";
 
 // Helper function to get mock analysis data
 const getMockAnalysisData = () => {
@@ -87,8 +93,18 @@ export async function POST(request: Request) {
       throw new Error("No file found in form data");
     }
 
-    console.log("File size:", file instanceof File ? file.size : "unknown");
-    console.log("File type:", file instanceof File ? file.type : "unknown");
+    console.log(
+      "File size:",
+      file && typeof file === "object" && "size" in file
+        ? file.size
+        : "unknown",
+    );
+    console.log(
+      "File type:",
+      file && typeof file === "object" && "type" in file
+        ? file.type
+        : "unknown",
+    );
 
     // Make sure binaryPropertyName is set correctly
     if (!formData.has("binaryPropertyName")) {
@@ -135,16 +151,25 @@ export async function POST(request: Request) {
             recordingId: recordingId,
           };
 
-          // Send to our analysis webhook
-          const analysisWebhookUrl =
-            "https://uzwpqhhrtfzjgytbadxl.supabase.co/functions/v1/call-analysis-webhook";
+          // Send to our internal analysis webhook instead of Supabase function
+          const analysisWebhookUrl = "/api/call-analysis-webhook";
           console.log("Forwarding analysis to:", analysisWebhookUrl);
           console.log(
             "Analysis data being sent:",
             JSON.stringify(analysisData),
           );
 
-          const analysisResponse = await fetch(analysisWebhookUrl, {
+          // Use absolute URL for the analysis webhook
+          const baseUrl = process.env.VERCEL_URL
+            ? `https://${process.env.VERCEL_URL}`
+            : process.env.NEXT_PUBLIC_SUPABASE_URL?.includes("localhost")
+              ? "http://localhost:3000"
+              : "https://agitated-satoshi7-v9pba.view-2.tempo-dev.app";
+
+          const fullAnalysisUrl = `${baseUrl}${analysisWebhookUrl}`;
+          console.log("Full analysis URL:", fullAnalysisUrl);
+
+          const analysisResponse = await fetch(fullAnalysisUrl, {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
@@ -187,7 +212,9 @@ export async function POST(request: Request) {
       headers: {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-        "Access-Control-Allow-Headers": "Content-Type, Authorization",
+        "Access-Control-Allow-Headers":
+          "Content-Type, Authorization, X-Target-Url",
+        "Access-Control-Allow-Credentials": "true",
         "Content-Type": "application/json",
       },
     });
@@ -234,7 +261,9 @@ export async function POST(request: Request) {
         headers: {
           "Access-Control-Allow-Origin": "*",
           "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
-          "Access-Control-Allow-Headers": "Content-Type, Authorization",
+          "Access-Control-Allow-Headers":
+            "Content-Type, Authorization, X-Target-Url",
+          "Access-Control-Allow-Credentials": "true",
           "Content-Type": "application/json",
         },
       },
