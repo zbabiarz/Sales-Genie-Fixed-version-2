@@ -217,11 +217,23 @@ export function CallAnalyzer() {
       }
     } catch (error) {
       console.error("Error analyzing call:", error);
-      // Don't mark as failed immediately, it might still be processing
-      // Just inform the user that processing might take time
-      alert(
-        "Your call is being processed and may take up to 3 minutes to complete. Please try again in a few minutes.",
-      );
+      const errorMessage = (error as Error).message;
+
+      // Show appropriate error message based on error type
+      if (errorMessage.includes("File too large")) {
+        alert(
+          "File too large. Please use a file smaller than 25MB and try again.",
+        );
+      } else if (errorMessage.includes("timeout")) {
+        alert(
+          "Request timeout. Please try with a smaller file or try again later.",
+        );
+      } else {
+        alert(`Error processing file: ${errorMessage}`);
+      }
+
+      // Reset processing state
+      setIsProcessing(false);
     } finally {
       setIsAnalyzing(false);
     }
@@ -338,7 +350,7 @@ export function CallAnalyzer() {
           const responseText = await webhookResponse.text();
           console.error("413 error response:", responseText);
           throw new Error(
-            "File too large for the server. Please use a file smaller than 50MB. Current file size: " +
+            "File too large for the server. Please use a file smaller than 25MB. Current file size: " +
               (mediaFile.size / (1024 * 1024)).toFixed(2) +
               "MB",
           );
@@ -352,7 +364,19 @@ export function CallAnalyzer() {
           throw new Error("Server error occurred. Please try again later.");
         }
 
-        console.log("Continuing to process response despite error status");
+        // For other errors, try to get the error message from response
+        try {
+          const errorData = await webhookResponse.json();
+          if (errorData.error) {
+            throw new Error(errorData.error);
+          }
+        } catch (parseError) {
+          console.error("Could not parse error response");
+        }
+
+        throw new Error(
+          `Server returned error: ${webhookResponse.status} ${webhookResponse.statusText}`,
+        );
       }
 
       console.log("Media file successfully sent to webhook");
@@ -360,6 +384,11 @@ export function CallAnalyzer() {
       // Parse the webhook response
       let webhookData = await webhookResponse.json();
       console.log("Received webhook response:", webhookData);
+
+      // Check if the response indicates an error
+      if (webhookData.error && !webhookData.success) {
+        throw new Error(webhookData.error);
+      }
 
       // If we have a recordingId, wait for processing to complete and fetch results from Supabase
       if (recordingId) {
@@ -613,22 +642,19 @@ export function CallAnalyzer() {
       // Show specific error messages based on the error type
       const errorMessage = (error as Error).message;
       if (errorMessage.includes("File too large")) {
-        alert("File too large. Please use a file smaller than 100MB.");
+        alert("File too large. Please use a file smaller than 25MB.");
       } else if (errorMessage.includes("timeout")) {
         alert(
           "Request timeout. Please try with a smaller file or try again later.",
         );
       } else {
         alert(
-          `Your call is being processed and may take up to 10 minutes to complete. Please try again in a few minutes.`,
+          `Error processing file: ${errorMessage}. Please try again with a smaller file.`,
         );
       }
 
-      const mockData = getMockAnalysisData();
-      return {
-        transcript: mockData.transcript,
-        analysis: mockData.analysis,
-      };
+      // Don't return mock data, let the error propagate
+      throw error;
     }
   };
 
@@ -935,7 +961,7 @@ export function CallAnalyzer() {
                     Supports all audio and video formats
                     <br />
                     <span className="text-amber-600 font-medium">
-                      Recommended file size: under 50MB
+                      Recommended file size: under 25MB
                     </span>
                   </p>
                   {uploadedFile && (

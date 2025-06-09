@@ -240,13 +240,11 @@ export async function POST(request: Request) {
       statusCode = 500;
     }
 
-    // Return error message with mock data as fallback
-    const mockData = getMockAnalysisData();
+    // Return error without mock data fallback
     return NextResponse.json(
       {
         error: `Error processing request: ${errorMessage}`,
-        fallback: true,
-        ...mockData,
+        success: false,
       },
       {
         status: statusCode,
