@@ -9,14 +9,6 @@ export const maxDuration = 300; // 5 minutes
 export const dynamic = "force-dynamic";
 export const fetchCache = "force-no-store";
 
-// Configure body parser for large files
-export const bodyParser = {
-  sizeLimit: "100mb",
-};
-
-// Configure response size limit
-export const responseLimit = "100mb";
-
 // Helper function to get mock analysis data
 const getMockAnalysisData = () => {
   return {

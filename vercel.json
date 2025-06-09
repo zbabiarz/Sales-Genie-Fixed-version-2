@@ -1,13 +1,7 @@
 {
   "functions": {
-    "src/app/api/*/route.ts": {
-      "maxDuration": 300
-    },
-    "src/app/api/proxy-webhook/route.ts": {
+    "app/api/*/route.ts": {
       "maxDuration": 300
     }
-  },
-  "limits": {
-    "duration": 300000
   }
 }
