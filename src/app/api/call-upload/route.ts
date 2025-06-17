@@ -104,34 +104,41 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
           const webhookUrl =
             "https://effortlessai.app.n8n.cloud/webhook/5735f10d-5868-44b8-884e-cff2b722cb8d";
 
-          // Create FormData with the blob URL instead of the file
-          const formData = new FormData();
-          formData.append("fileUrl", blob.url);
-          formData.append("fileName", fileName || "recording");
-          formData.append("fileSize", fileSize?.toString() || "0");
-          formData.append("fileType", fileType || "audio/mpeg");
+          // Prepare webhook payload
+          const webhookPayload = {
+            fileUrl: blob.url,
+            fileName: fileName || "recording",
+            fileSize: fileSize || 0,
+            fileType: fileType || "audio/mpeg",
+            recordingId: recordingId || null,
+            userId: userId || null,
+          };
 
-          if (recordingId) {
-            formData.append("recordingId", recordingId);
-          }
-          if (userId) {
-            formData.append("userId", userId);
-          }
+          console.log("Sending webhook payload:", webhookPayload);
 
           // Send to the analysis webhook
           const webhookResponse = await fetch(webhookUrl, {
             method: "POST",
-            body: formData,
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify(webhookPayload),
           });
 
           if (!webhookResponse.ok) {
+            const errorText = await webhookResponse.text();
             console.error(
               "Webhook response not OK:",
               webhookResponse.status,
               webhookResponse.statusText,
+              errorText,
             );
           } else {
-            console.log("Successfully triggered analysis webhook");
+            const responseText = await webhookResponse.text();
+            console.log(
+              "Successfully triggered analysis webhook:",
+              responseText,
+            );
           }
         } catch (error) {
           console.error("Error in onUploadCompleted:", error);
