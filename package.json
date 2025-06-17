@@ -21,6 +21,7 @@
     "@supabase/auth-helpers-nextjs": "^0.10.0",
     "@supabase/ssr": "latest",
     "@supabase/supabase-js": "latest",
+    "@vercel/blob": "^1.1.1",
     "autoprefixer": "10.4.20",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
@@ -39,7 +40,7 @@
     "react-resizable-panels": "^2.1.7",
     "sharp": "^0.33.5",
     "stripe": "^17.6.0",
-    "tempo-devtools": "^2.0.106",
+    "tempo-devtools": "^2.0.108",
     "vaul": "^1.1.2"
   },
   "devDependencies": {

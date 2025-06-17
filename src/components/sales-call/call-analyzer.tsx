@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
+import { upload } from "@vercel/blob/client";
 import { Button } from "@/components/ui/button";
 import {
   Card,
@@ -105,12 +106,10 @@ export function CallAnalyzer() {
   const [transcript, setTranscript] = useState("");
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const supabase = createClient();
-  // Direct webhook URL for processing
-  const webhookUrl =
-    "https://effortlessai.app.n8n.cloud/webhook/5735f10d-5868-44b8-884e-cff2b722cb8d";
-  const useMockData = false; // Always use the real webhook
   // Use our own API route instead of calling Supabase function directly
   const analysisWebhookUrl = "/api/call-analysis-webhook";
   // Recording ID to track the current analysis
@@ -132,11 +131,10 @@ export function CallAnalyzer() {
 
   const analyzeCall = async () => {
     setIsAnalyzing(true);
+    setIsUploading(true);
 
     try {
       if (uploadedFile) {
-        setIsProcessing(true);
-
         // First, create a record in the database to track this analysis
         let newRecordingId = null;
         let userId = null;
@@ -151,7 +149,7 @@ export function CallAnalyzer() {
                 file_name: uploadedFile.name,
                 file_size: uploadedFile.size,
                 file_type: uploadedFile.type,
-                status: "processing",
+                status: "uploading",
               })
               .select();
 
@@ -178,42 +176,33 @@ export function CallAnalyzer() {
           console.error("Error creating records:", logError);
         }
 
-        // Process the media file through the webhook
-        console.log("Starting media file processing...");
-        const transcriptAndAnalysis = await processMediaFile(
-          uploadedFile,
-          newRecordingId,
-          userId,
-        );
-        console.log("Media file processing completed", transcriptAndAnalysis);
+        // Upload file to Vercel Blob
+        console.log("Starting file upload to Vercel Blob...");
+        try {
+          const blob = await upload(uploadedFile.name, uploadedFile, {
+            access: "public",
+            handleUploadUrl: "/api/call-upload",
+            clientPayload: {
+              recordingId: newRecordingId,
+              userId: userId,
+              fileName: uploadedFile.name,
+              fileSize: uploadedFile.size,
+              fileType: uploadedFile.type,
+            },
+          });
 
-        // Add detailed logging before state updates
-        console.log("About to update state with:", {
-          transcript: transcriptAndAnalysis.transcript || "",
-          analysis: transcriptAndAnalysis.analysis,
-          analysisType: typeof transcriptAndAnalysis.analysis,
-          analysisKeys: transcriptAndAnalysis.analysis
-            ? Object.keys(transcriptAndAnalysis.analysis)
-            : "null",
-        });
+          console.log("File uploaded successfully:", blob.url);
+          setIsUploading(false);
+          setIsProcessing(true);
 
-        // Update state with detailed logging
-        console.log("Setting transcript...");
-        setTranscript(transcriptAndAnalysis.transcript || "");
-
-        console.log("Setting analysis...");
-        setAnalysis(transcriptAndAnalysis.analysis);
-
-        console.log("Setting active tab to results...");
-        setActiveTab("results");
-
-        console.log("Setting isProcessing to false...");
-        setIsProcessing(false);
-
-        console.log(
-          "State updates completed. Current analysis state should be:",
-          transcriptAndAnalysis.analysis,
-        );
+          // Wait for analysis to complete by polling the database
+          await waitForAnalysisCompletion(newRecordingId);
+        } catch (uploadError) {
+          console.error("Error uploading file:", uploadError);
+          throw new Error(
+            "Failed to upload file: " + (uploadError as Error).message,
+          );
+        }
       }
     } catch (error) {
       console.error("Error analyzing call:", error);
@@ -222,7 +211,7 @@ export function CallAnalyzer() {
       // Show appropriate error message based on error type
       if (errorMessage.includes("File too large")) {
         alert(
-          "File too large. Please use a file smaller than 25MB and try again.",
+          "File too large. Please use a file smaller than 100MB and try again.",
         );
       } else if (errorMessage.includes("timeout")) {
         alert(
@@ -234,12 +223,181 @@ export function CallAnalyzer() {
 
       // Reset processing state
       setIsProcessing(false);
+      setIsUploading(false);
     } finally {
       setIsAnalyzing(false);
     }
   };
 
-  const processMediaFile = async (
+  const waitForAnalysisCompletion = async (recordingId: string | null) => {
+    if (!recordingId) return;
+
+    let attempts = 0;
+    const maxAttempts = 40; // 40 attempts * 6 seconds = up to 4 minutes of waiting
+    let analysisResults = null;
+    let transcriptResult = null;
+
+    while (attempts < maxAttempts) {
+      attempts++;
+      console.log(
+        `Polling for results (attempt ${attempts}/${maxAttempts})...`,
+      );
+
+      // Check if the analysis results are available
+      const { data: recordingData, error: recordingError } = await supabase
+        .from("call_recordings")
+        .select("*")
+        .eq("id", recordingId)
+        .single();
+
+      if (recordingError) {
+        console.error("Error fetching recording data:", recordingError);
+      } else if (recordingData && recordingData.analysis_results) {
+        console.log("Found analysis results:", recordingData.analysis_results);
+        analysisResults = recordingData.analysis_results;
+        transcriptResult = recordingData.transcript || "";
+        break;
+      } else if (recordingData && recordingData.status === "failed") {
+        console.error("Processing failed according to database status");
+        throw new Error("Analysis processing failed");
+      }
+
+      // Wait 6 seconds before checking again
+      await new Promise((resolve) => setTimeout(resolve, 6000));
+    }
+
+    if (analysisResults) {
+      console.log(
+        "Successfully retrieved analysis results from database",
+        analysisResults,
+      );
+      setIsProcessing(false);
+
+      // Handle case where analysisResults might be a string instead of an object
+      let parsedResults = analysisResults;
+      if (typeof analysisResults === "string") {
+        console.log(
+          "Analysis results is a string, attempting to parse or structure it",
+        );
+        // If it's a comma-separated string, split it into an array
+        const items = analysisResults.split(",").map((item) => item.trim());
+        parsedResults = {
+          agents_strengths: items.slice(0, Math.ceil(items.length / 3)),
+          areas_for_improvement: items.slice(
+            Math.ceil(items.length / 3),
+            Math.ceil((2 * items.length) / 3),
+          ),
+          actionable_recommendations: items.slice(
+            Math.ceil((2 * items.length) / 3),
+          ),
+          analysis: analysisResults,
+          final_score: "7.5/10",
+        };
+        console.log("Parsed results from string:", parsedResults);
+      }
+
+      // Map the analysis results to our expected format
+      const scoreValue =
+        parsedResults.final_score &&
+        typeof parsedResults.final_score === "string"
+          ? parseFloat(parsedResults.final_score.split("/")[0]) || 7.5
+          : 7.5;
+
+      // Get identity info based on score
+      const identityInfo = getIdentityInfo(scoreValue);
+
+      const mappedAnalysis: CallAnalysis = {
+        strengths: Array.isArray(parsedResults.agents_strengths)
+          ? parsedResults.agents_strengths
+          : parsedResults.agents_strengths
+            ? [parsedResults.agents_strengths]
+            : [],
+        improvements: Array.isArray(parsedResults.areas_for_improvement)
+          ? parsedResults.areas_for_improvement
+          : parsedResults.areas_for_improvement
+            ? [parsedResults.areas_for_improvement]
+            : [],
+        recommendations: Array.isArray(parsedResults.actionable_recommendations)
+          ? parsedResults.actionable_recommendations
+          : parsedResults.actionable_recommendations
+            ? [parsedResults.actionable_recommendations]
+            : [],
+        summary:
+          parsedResults.summary || "Call analysis completed successfully.",
+        sentiment: {
+          overall: "Moderately Effective",
+          tonality: "Professional",
+          score: scoreValue,
+        },
+        // Include all the additional fields from the analysis results, ensuring they're properly formatted
+        agents_strengths: Array.isArray(parsedResults.agents_strengths)
+          ? parsedResults.agents_strengths
+          : parsedResults.agents_strengths
+            ? [parsedResults.agents_strengths]
+            : [],
+        areas_for_improvement: Array.isArray(
+          parsedResults.areas_for_improvement,
+        )
+          ? parsedResults.areas_for_improvement
+          : parsedResults.areas_for_improvement
+            ? [parsedResults.areas_for_improvement]
+            : [],
+        actionable_recommendations: Array.isArray(
+          parsedResults.actionable_recommendations,
+        )
+          ? parsedResults.actionable_recommendations
+          : parsedResults.actionable_recommendations
+            ? [parsedResults.actionable_recommendations]
+            : [],
+        missed_opportunities: Array.isArray(parsedResults.missed_opportunities)
+          ? parsedResults.missed_opportunities
+          : parsedResults.missed_opportunities
+            ? [parsedResults.missed_opportunities]
+            : [],
+        suggested_training_focus:
+          typeof parsedResults.suggested_training_focus === "string"
+            ? parsedResults.suggested_training_focus
+            : "Focus on discovery questions and benefit explanations",
+        final_score:
+          typeof parsedResults.final_score === "string"
+            ? parsedResults.final_score
+            : "7.5/10",
+        topics: Array.isArray(parsedResults.topics)
+          ? parsedResults.topics
+          : parsedResults.topics
+            ? [parsedResults.topics]
+            : ["Sales Call", "Insurance"],
+        keywords: Array.isArray(parsedResults.keywords)
+          ? parsedResults.keywords
+          : parsedResults.keywords
+            ? [parsedResults.keywords]
+            : ["Sales", "Insurance", "Call Analysis"],
+        total_call_duration:
+          typeof parsedResults.total_call_duration === "string"
+            ? parsedResults.total_call_duration
+            : "Unknown duration",
+        analysis:
+          typeof parsedResults.analysis === "string"
+            ? parsedResults.analysis
+            : typeof analysisResults === "string"
+              ? analysisResults
+              : "Analysis completed",
+        identity_name: `${identityInfo.emoji} ${identityInfo.name}`,
+        identity_description: identityInfo.description,
+      };
+
+      console.log("Mapped analysis object created:", mappedAnalysis);
+
+      setTranscript(transcriptResult);
+      setAnalysis(mappedAnalysis);
+      setActiveTab("results");
+    } else {
+      throw new Error("Analysis timed out. Please try again.");
+    }
+  };
+
+  // Remove the old processMediaFile function as we're now using Vercel Blob uploads
+  const processMediaFileOld = async (
     mediaFile: File,
     recordingId: string | null = null,
     userId: string | null = null,
@@ -960,8 +1118,8 @@ export function CallAnalyzer() {
                     <br />
                     Supports all audio and video formats
                     <br />
-                    <span className="text-amber-600 font-medium">
-                      Recommended file size: under 25MB
+                    <span className="text-green-600 font-medium">
+                      Now supports files up to 100MB!
                     </span>
                   </p>
                   {uploadedFile && (
@@ -975,15 +1133,25 @@ export function CallAnalyzer() {
             <CardFooter className="flex justify-end">
               <Button
                 onClick={analyzeCall}
-                disabled={isAnalyzing || !uploadedFile || isProcessing}
+                disabled={
+                  isAnalyzing || !uploadedFile || isProcessing || isUploading
+                }
                 className="bg-teal-600 hover:bg-teal-700"
               >
-                {isAnalyzing || isProcessing ? (
+                {isUploading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    {isProcessing
-                      ? "Processing (may take up to 3 minutes)..."
-                      : "Analyzing..."}
+                    Uploading file...
+                  </>
+                ) : isProcessing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Processing (may take up to 3 minutes)...
+                  </>
+                ) : isAnalyzing ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Analyzing...
                   </>
                 ) : (
                   <>Analyze Call</>
