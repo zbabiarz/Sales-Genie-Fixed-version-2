@@ -320,8 +320,12 @@ export function CallAnalyzer() {
       const scoreValue =
         parsedResults.final_score &&
         typeof parsedResults.final_score === "string"
-          ? parseFloat(parsedResults.final_score.split("/")[0]) || 7.5
-          : 7.5;
+          ? parseFloat(parsedResults.final_score.split("/")[0]) ||
+            parseFloat(parsedResults.final_score)
+          : parsedResults.final_score &&
+              typeof parsedResults.final_score === "number"
+            ? parsedResults.final_score
+            : 0;
 
       // Get identity info based on score
       const identityInfo = getIdentityInfo(scoreValue);
@@ -381,7 +385,9 @@ export function CallAnalyzer() {
         final_score:
           typeof parsedResults.final_score === "string"
             ? parsedResults.final_score
-            : "7.5/10",
+            : typeof parsedResults.final_score === "number"
+              ? parsedResults.final_score.toString()
+              : "0",
         topics: Array.isArray(parsedResults.topics)
           ? parsedResults.topics
           : parsedResults.topics
@@ -1041,16 +1047,16 @@ export function CallAnalyzer() {
         {icon}
         <CardTitle className="text-lg">{title}</CardTitle>
       </CardHeader>
-      <CardContent>
-        <ul className="space-y-2">
+      <CardContent className="max-h-96 overflow-y-auto">
+        <ul className="space-y-3">
           {items.map((item, index) => (
-            <li key={index} className="flex items-start gap-2">
-              <div className="min-w-4 mt-1">
+            <li key={index} className="flex items-start gap-3">
+              <div className="min-w-4 mt-1.5">
                 <div
                   className={`h-2 w-2 rounded-full ${color.replace("text-", "bg-")}`}
                 />
               </div>
-              <span>{item}</span>
+              <span className="text-sm leading-relaxed">{item}</span>
             </li>
           ))}
         </ul>
@@ -1204,7 +1210,7 @@ export function CallAnalyzer() {
                   )}
 
                   {renderFeedbackSection({
-                    title: "Strengths",
+                    title: "Agent Strengths",
                     items:
                       Array.isArray(analysis.agents_strengths) &&
                       analysis.agents_strengths.length > 0
@@ -1261,8 +1267,8 @@ export function CallAnalyzer() {
                         Detailed Analysis
                       </CardTitle>
                     </CardHeader>
-                    <CardContent>
-                      <div className="bg-muted p-4 rounded-md text-sm whitespace-pre-wrap">
+                    <CardContent className="max-h-96 overflow-y-auto">
+                      <div className="bg-muted p-4 rounded-md text-sm whitespace-pre-wrap leading-relaxed">
                         {analysis.analysis || "No detailed analysis available"}
                       </div>
                     </CardContent>
@@ -1347,14 +1353,22 @@ export function CallAnalyzer() {
                                 let maxScore = 10;
 
                                 if (analysis.final_score) {
-                                  const parts = analysis.final_score.split("/");
-                                  score = parseFloat(parts[0]) || 0;
-                                  maxScore = parseFloat(parts[1]) || 10;
+                                  // Handle both "7.8" and "7.8/10" formats
+                                  if (analysis.final_score.includes("/")) {
+                                    const parts =
+                                      analysis.final_score.split("/");
+                                    score = parseFloat(parts[0]) || 0;
+                                    maxScore = parseFloat(parts[1]) || 10;
+                                  } else {
+                                    score =
+                                      parseFloat(analysis.final_score) || 0;
+                                    maxScore = 10;
+                                  }
                                 } else if (analysis.sentiment?.score) {
                                   score = analysis.sentiment.score;
                                   maxScore = 10;
                                 } else {
-                                  score = 7; // Default score
+                                  score = 0;
                                   maxScore = 10;
                                 }
 
@@ -1365,6 +1379,7 @@ export function CallAnalyzer() {
                                 let color = "bg-red-500";
                                 if (score >= 8) color = "bg-green-500";
                                 else if (score >= 6) color = "bg-yellow-500";
+                                else if (score >= 4) color = "bg-orange-500";
 
                                 return (
                                   <div
@@ -1375,10 +1390,13 @@ export function CallAnalyzer() {
                               })()}
                             </div>
                             <span className="text-xl font-bold">
-                              {analysis.final_score ||
-                                (analysis.sentiment?.score
+                              {analysis.final_score
+                                ? analysis.final_score.includes("/")
+                                  ? analysis.final_score
+                                  : `${analysis.final_score}/10`
+                                : analysis.sentiment?.score
                                   ? `${analysis.sentiment.score.toFixed(1)}/10`
-                                  : "N/A")}
+                                  : "N/A"}
                             </span>
                           </div>
 
