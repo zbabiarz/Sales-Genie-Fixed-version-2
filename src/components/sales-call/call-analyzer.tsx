@@ -279,20 +279,24 @@ export function CallAnalyzer() {
         console.log(
           "Analysis results is a string, attempting to parse or structure it",
         );
-        // If it's a comma-separated string, split it into an array
-        const items = analysisResults.split(",").map((item) => item.trim());
-        parsedResults = {
-          agents_strengths: items.slice(0, Math.ceil(items.length / 3)),
-          areas_for_improvement: items.slice(
-            Math.ceil(items.length / 3),
-            Math.ceil((2 * items.length) / 3),
-          ),
-          actionable_recommendations: items.slice(
-            Math.ceil((2 * items.length) / 3),
-          ),
-          analysis: analysisResults,
-          final_score: "7.5/10",
-        };
+        // Try to parse as JSON first
+        try {
+          parsedResults = JSON.parse(analysisResults);
+        } catch (parseError) {
+          // If JSON parsing fails, treat as comma-separated string
+          const items = analysisResults.split(",").map((item) => item.trim());
+          parsedResults = {
+            agents_strengths: items.slice(0, Math.ceil(items.length / 3)),
+            areas_for_improvement: items.slice(
+              Math.ceil(items.length / 3),
+              Math.ceil((2 * items.length) / 3),
+            ),
+            actionable_recommendations: items.slice(
+              Math.ceil((2 * items.length) / 3),
+            ),
+            analysis: analysisResults,
+          };
+        }
         console.log("Parsed results from string:", parsedResults);
       }
 
@@ -346,11 +350,10 @@ export function CallAnalyzer() {
           : parsedResults.actionable_recommendations
             ? [parsedResults.actionable_recommendations]
             : [],
-        summary:
-          parsedResults.summary || "Call analysis completed successfully.",
-        sentiment: {
-          overall: "Moderately Effective",
-          tonality: "Professional",
+        summary: parsedResults.summary || "",
+        sentiment: parsedResults.sentiment || {
+          overall: "",
+          tonality: "",
           score: scoreValue,
         },
         // Include all the additional fields from the analysis results, ensuring they're properly formatted
@@ -381,7 +384,7 @@ export function CallAnalyzer() {
         suggested_training_focus:
           typeof parsedResults.suggested_training_focus === "string"
             ? parsedResults.suggested_training_focus
-            : "Focus on discovery questions and benefit explanations",
+            : "",
         final_score:
           typeof parsedResults.final_score === "string"
             ? parsedResults.final_score
@@ -392,22 +395,22 @@ export function CallAnalyzer() {
           ? parsedResults.topics
           : parsedResults.topics
             ? [parsedResults.topics]
-            : ["Sales Call", "Insurance"],
+            : [],
         keywords: Array.isArray(parsedResults.keywords)
           ? parsedResults.keywords
           : parsedResults.keywords
             ? [parsedResults.keywords]
-            : ["Sales", "Insurance", "Call Analysis"],
+            : [],
         total_call_duration:
           typeof parsedResults.total_call_duration === "string"
             ? parsedResults.total_call_duration
-            : "Unknown duration",
+            : "",
         analysis:
           typeof parsedResults.analysis === "string"
             ? parsedResults.analysis
             : typeof analysisResults === "string"
               ? analysisResults
-              : "Analysis completed",
+              : "",
         identity_name: `${identityInfo.emoji} ${identityInfo.name}`,
         identity_description: identityInfo.description,
       };
@@ -419,426 +422,6 @@ export function CallAnalyzer() {
       setActiveTab("results");
     } else {
       throw new Error("Analysis timed out. Please try again.");
-    }
-  };
-
-  // Remove the old processMediaFile function as we're now using Vercel Blob uploads
-  const processMediaFileOld = async (
-    mediaFile: File,
-    recordingId: string | null = null,
-    userId: string | null = null,
-  ): Promise<{ transcript?: string; analysis: CallAnalysis }> => {
-    // Check file size and warn user but still process
-    if (mediaFile.size > 25 * 1024 * 1024) {
-      // 25MB soft limit
-      console.log("File is large, this may take longer to process");
-      // We'll still try to process it, but warn the user
-      alert(
-        "This file is large (over 25MB). Processing may take longer and might fail. Consider using a smaller file for better results.",
-      );
-    }
-
-    // Log file details for debugging
-    console.log("Processing file:", {
-      name: mediaFile.name,
-      size: mediaFile.size,
-      type: mediaFile.type,
-      sizeInMB: (mediaFile.size / (1024 * 1024)).toFixed(2) + "MB",
-    });
-
-    // If useMockData is true, immediately return mock data without attempting API call
-    if (useMockData) {
-      console.log("Using mock data instead of processing file");
-      const mockData = getMockAnalysisData();
-      return {
-        transcript: mockData.transcript,
-        analysis: mockData.analysis,
-      };
-    }
-
-    try {
-      // Create a FormData object to upload the file
-      let formData = new FormData();
-      formData.append("file", mediaFile);
-      formData.append("binaryPropertyName", "file");
-      // Add additional parameters that OpenAI Whisper might need
-      formData.append("model", "whisper-1");
-      formData.append(
-        "prompt",
-        "This is a sales call recording. Please transcribe accurately.",
-      );
-
-      // Add the recording ID and user ID if available
-      if (recordingId) {
-        formData.append("recordingId", recordingId);
-        console.log("Added recordingId to formData:", recordingId);
-      }
-
-      if (userId) {
-        formData.append("userId", userId);
-        console.log("Added userId to formData:", userId);
-      }
-
-      console.log(
-        "FormData created with file:",
-        mediaFile.name,
-        mediaFile.type,
-        mediaFile.size,
-        recordingId ? `recordingId: ${recordingId}` : "",
-        userId ? `userId: ${userId}` : "",
-      );
-
-      // For large files, we need to set a longer timeout
-      let controller = new AbortController();
-      let timeoutId = setTimeout(() => controller.abort(), 270000); // 4.5 minute timeout to stay under function limit
-
-      // Send through our proxy endpoint to avoid CORS issues
-      let proxyEndpoint = "/api/proxy-webhook";
-      console.log("Using proxy endpoint:", proxyEndpoint);
-
-      // Log what we're sending for debugging
-      console.log("Sending to proxy with parameters:", {
-        file: mediaFile.name,
-        fileType: mediaFile.type,
-        fileSize: mediaFile.size,
-        binaryPropertyName: "file",
-        recordingId: recordingId || "not set",
-        userId: userId || "not set",
-      });
-
-      console.log("Sending request to proxy endpoint...");
-      let webhookResponse = await fetch(proxyEndpoint, {
-        method: "POST",
-        body: formData,
-        headers: {
-          "X-Target-Url": webhookUrl,
-          // IMPORTANT: Do NOT set Content-Type manually for FormData
-          // The browser will automatically set it with the correct boundary
-        },
-        signal: controller.signal,
-      });
-      console.log(
-        "Received response from proxy endpoint:",
-        webhookResponse.status,
-      );
-
-      clearTimeout(timeoutId);
-
-      // Handle different error responses
-      if (!webhookResponse.ok) {
-        console.warn(
-          `Webhook response not OK: ${webhookResponse.status} ${webhookResponse.statusText}`,
-        );
-
-        if (webhookResponse.status === 413) {
-          const responseText = await webhookResponse.text();
-          console.error("413 error response:", responseText);
-          throw new Error(
-            "File too large for the server. Please use a file smaller than 25MB. Current file size: " +
-              (mediaFile.size / (1024 * 1024)).toFixed(2) +
-              "MB",
-          );
-        } else if (webhookResponse.status === 408) {
-          throw new Error(
-            "Request timeout. Please try with a smaller file or try again later.",
-          );
-        } else if (webhookResponse.status >= 500) {
-          const responseText = await webhookResponse.text();
-          console.error("Server error response:", responseText);
-          throw new Error("Server error occurred. Please try again later.");
-        }
-
-        // For other errors, try to get the error message from response
-        try {
-          const errorData = await webhookResponse.json();
-          if (errorData.error) {
-            throw new Error(errorData.error);
-          }
-        } catch (parseError) {
-          console.error("Could not parse error response");
-        }
-
-        throw new Error(
-          `Server returned error: ${webhookResponse.status} ${webhookResponse.statusText}`,
-        );
-      }
-
-      console.log("Media file successfully sent to webhook");
-
-      // Parse the webhook response
-      let webhookData = await webhookResponse.json();
-      console.log("Received webhook response:", webhookData);
-
-      // Check if the response indicates an error
-      if (webhookData.error && !webhookData.success) {
-        throw new Error(webhookData.error);
-      }
-
-      // If we have a recordingId, wait for processing to complete and fetch results from Supabase
-      if (recordingId) {
-        try {
-          console.log(
-            "Waiting for n8n processing to complete for recording ID:",
-            recordingId,
-          );
-
-          // First, send the data to our analysis webhook to ensure it's saved
-          try {
-            const analysisResponse = await fetch(analysisWebhookUrl, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                recordingId: recordingId,
-                userId: userId,
-                transcript: webhookData.transcript || "",
-                analysis: webhookData.analysis || {},
-              }),
-            });
-            console.log("Sent initial data to analysis webhook");
-          } catch (webhookError) {
-            console.error("Error sending to analysis webhook:", webhookError);
-          }
-
-          // Poll the database for results
-          let attempts = 0;
-          const maxAttempts = 40; // 40 attempts * 6 seconds = up to 4 minutes of waiting
-          let analysisResults = null;
-          let transcriptResult = null;
-
-          // Show a loading message to the user
-          setIsProcessing(true);
-
-          while (attempts < maxAttempts) {
-            attempts++;
-            console.log(
-              `Polling for results (attempt ${attempts}/${maxAttempts})...`,
-            );
-
-            // Check if the analysis results are available
-            const { data: recordingData, error: recordingError } =
-              await supabase
-                .from("call_recordings")
-                .select("*")
-                .eq("id", recordingId)
-                .single();
-
-            if (recordingError) {
-              console.error("Error fetching recording data:", recordingError);
-            } else if (recordingData && recordingData.analysis_results) {
-              console.log(
-                "Found analysis results:",
-                recordingData.analysis_results,
-              );
-              analysisResults = recordingData.analysis_results;
-              transcriptResult =
-                recordingData.transcript || webhookData.transcript || "";
-              break;
-            } else if (recordingData && recordingData.status === "failed") {
-              console.error("Processing failed according to database status");
-              break;
-            }
-
-            // Wait 6 seconds before checking again
-            await new Promise((resolve) => setTimeout(resolve, 6000));
-          }
-
-          if (analysisResults) {
-            console.log(
-              "Successfully retrieved analysis results from database",
-              analysisResults,
-            );
-            console.log("Type of analysisResults:", typeof analysisResults);
-            console.log("About to call setIsProcessing(false)");
-            setIsProcessing(false);
-            console.log("setIsProcessing(false) completed");
-
-            // Handle case where analysisResults might be a string instead of an object
-            let parsedResults = analysisResults;
-            if (typeof analysisResults === "string") {
-              console.log(
-                "Analysis results is a string, attempting to parse or structure it",
-              );
-              // If it's a comma-separated string, split it into an array
-              const items = analysisResults
-                .split(",")
-                .map((item) => item.trim());
-              parsedResults = {
-                agents_strengths: items.slice(0, Math.ceil(items.length / 3)),
-                areas_for_improvement: items.slice(
-                  Math.ceil(items.length / 3),
-                  Math.ceil((2 * items.length) / 3),
-                ),
-                actionable_recommendations: items.slice(
-                  Math.ceil((2 * items.length) / 3),
-                ),
-                analysis: analysisResults,
-                final_score: "7.5/10",
-              };
-              console.log("Parsed results from string:", parsedResults);
-            }
-
-            // Map the analysis results to our expected format
-            const scoreValue =
-              parsedResults.final_score &&
-              typeof parsedResults.final_score === "string"
-                ? parseFloat(parsedResults.final_score.split("/")[0]) || 7.5
-                : 7.5;
-
-            // Get identity info based on score
-            const identityInfo = getIdentityInfo(scoreValue);
-
-            const mappedAnalysis: CallAnalysis = {
-              strengths: Array.isArray(parsedResults.agents_strengths)
-                ? parsedResults.agents_strengths
-                : parsedResults.agents_strengths
-                  ? [parsedResults.agents_strengths]
-                  : [],
-              improvements: Array.isArray(parsedResults.areas_for_improvement)
-                ? parsedResults.areas_for_improvement
-                : parsedResults.areas_for_improvement
-                  ? [parsedResults.areas_for_improvement]
-                  : [],
-              recommendations: Array.isArray(
-                parsedResults.actionable_recommendations,
-              )
-                ? parsedResults.actionable_recommendations
-                : parsedResults.actionable_recommendations
-                  ? [parsedResults.actionable_recommendations]
-                  : [],
-              summary:
-                webhookData.summary ||
-                parsedResults.summary ||
-                "Call analysis completed successfully.",
-              sentiment: {
-                overall: "Moderately Effective",
-                tonality: "Professional",
-                score: scoreValue,
-              },
-              // Include all the additional fields from the analysis results, ensuring they're properly formatted
-              agents_strengths: Array.isArray(parsedResults.agents_strengths)
-                ? parsedResults.agents_strengths
-                : parsedResults.agents_strengths
-                  ? [parsedResults.agents_strengths]
-                  : [],
-              areas_for_improvement: Array.isArray(
-                parsedResults.areas_for_improvement,
-              )
-                ? parsedResults.areas_for_improvement
-                : parsedResults.areas_for_improvement
-                  ? [parsedResults.areas_for_improvement]
-                  : [],
-              actionable_recommendations: Array.isArray(
-                parsedResults.actionable_recommendations,
-              )
-                ? parsedResults.actionable_recommendations
-                : parsedResults.actionable_recommendations
-                  ? [parsedResults.actionable_recommendations]
-                  : [],
-              missed_opportunities: Array.isArray(
-                parsedResults.missed_opportunities,
-              )
-                ? parsedResults.missed_opportunities
-                : parsedResults.missed_opportunities
-                  ? [parsedResults.missed_opportunities]
-                  : [],
-              suggested_training_focus:
-                typeof parsedResults.suggested_training_focus === "string"
-                  ? parsedResults.suggested_training_focus
-                  : "Focus on discovery questions and benefit explanations",
-              final_score:
-                typeof parsedResults.final_score === "string"
-                  ? parsedResults.final_score
-                  : "7.5/10",
-              topics: Array.isArray(parsedResults.topics)
-                ? parsedResults.topics
-                : parsedResults.topics
-                  ? [parsedResults.topics]
-                  : ["Sales Call", "Insurance"],
-              keywords: Array.isArray(parsedResults.keywords)
-                ? parsedResults.keywords
-                : parsedResults.keywords
-                  ? [parsedResults.keywords]
-                  : ["Sales", "Insurance", "Call Analysis"],
-              total_call_duration:
-                typeof parsedResults.total_call_duration === "string"
-                  ? parsedResults.total_call_duration
-                  : "Unknown duration",
-              analysis:
-                typeof parsedResults.analysis === "string"
-                  ? parsedResults.analysis
-                  : typeof analysisResults === "string"
-                    ? analysisResults
-                    : "Analysis completed",
-              identity_name: `${identityInfo.emoji} ${identityInfo.name}`,
-              identity_description: identityInfo.description,
-            };
-
-            console.log("Mapped analysis object created:", mappedAnalysis);
-            console.log("About to return analysis data to main function");
-
-            return {
-              transcript: transcriptResult,
-              analysis: mappedAnalysis,
-            };
-          }
-        } catch (error) {
-          console.error(
-            "Error waiting for or processing analysis results:",
-            error,
-          );
-          console.log("Error occurred, calling setIsProcessing(false)");
-          setIsProcessing(false);
-          console.log("setIsProcessing(false) completed after error");
-          alert(
-            "Your call is still being processed. Please check back in a few minutes.",
-          );
-        }
-      }
-
-      // If we get here, either we don't have a recordingId or polling failed
-      // Check if we have a valid response with transcript and analysis from the webhook
-      if (webhookData && webhookData.transcript && webhookData.analysis) {
-        console.log("Using data directly from webhook response");
-        return {
-          transcript: webhookData.transcript,
-          analysis: webhookData.analysis,
-        };
-      } else if (webhookData && webhookData.success) {
-        // Handle success response that might not have the expected format
-        console.log(
-          "Webhook success but missing expected data format",
-          webhookData,
-        );
-        const mockData = getMockAnalysisData();
-        return {
-          transcript: webhookData.transcript || mockData.transcript,
-          analysis: webhookData.analysis || mockData.analysis,
-        };
-      } else {
-        console.error("Invalid response format from webhook", webhookData);
-        throw new Error("Invalid response format from analysis service");
-      }
-    } catch (error) {
-      console.error("Error processing media file:", error);
-
-      // Show specific error messages based on the error type
-      const errorMessage = (error as Error).message;
-      if (errorMessage.includes("File too large")) {
-        alert("File too large. Please use a file smaller than 25MB.");
-      } else if (errorMessage.includes("timeout")) {
-        alert(
-          "Request timeout. Please try with a smaller file or try again later.",
-        );
-      } else {
-        alert(
-          `Error processing file: ${errorMessage}. Please try again with a smaller file.`,
-        );
-      }
-
-      // Don't return mock data, let the error propagate
-      throw error;
     }
   };
 
@@ -946,94 +529,6 @@ export function CallAnalyzer() {
 
       return <>{formattedSegments}</>;
     }
-  };
-
-  // Helper function to get mock analysis data
-  const getMockAnalysisData = () => {
-    const mockTranscript =
-      "Hello, this is John from Insurance Sales Genie. I'm calling to discuss your insurance needs. Based on your profile, I think our Premium Health plan would be a great fit for you. It offers comprehensive coverage with a low deductible. What do you think about that? ... Yes, the monthly premium is $450. ... I understand your concern about the price. We do have a more affordable Basic Care plan at $250 per month, but it doesn't include dental and vision. ... Great, I'll send you more information about both plans. Is there anything specific you'd like to know about these plans?";
-
-    const mockScore = 8.5;
-    const identityInfo = getIdentityInfo(mockScore);
-
-    return {
-      transcript: mockTranscript,
-      analysis: {
-        summary:
-          "This was a 5-minute sales call with a potential client interested in health insurance. The agent introduced the Premium Health plan ($450/month) and, after hearing price concerns, offered the Basic Care plan ($250/month) as an alternative. The call ended with the agent agreeing to send more information about both plans.",
-        strengths: [
-          "Good introduction with clear identification",
-          "Offered product recommendations based on client profile",
-          "Provided specific pricing information",
-          "Offered alternative options when price concern was raised",
-          "Ended with a clear next step (sending information)",
-        ],
-        improvements: [
-          "Didn't ask enough discovery questions before recommending products",
-          "Limited explanation of product benefits",
-          "Didn't address potential health condition concerns",
-          "Could have explored client's specific needs more deeply",
-        ],
-        recommendations: [
-          "Start with more discovery questions before making recommendations",
-          "Explain product benefits in more detail, connecting them to client needs",
-          "Prepare responses for common objections beyond price",
-          "Use more comparative language when presenting multiple options",
-          "Add a specific call-to-action at the end of the conversation",
-        ],
-        agents_strengths: [
-          "Good introduction with clear identification",
-          "Offered product recommendations based on client profile",
-          "Provided specific pricing information",
-          "Offered alternative options when price concern was raised",
-          "Ended with a clear next step (sending information)",
-        ],
-        areas_for_improvement: [
-          "Didn't ask enough discovery questions before recommending products",
-          "Limited explanation of product benefits",
-          "Didn't address potential health condition concerns",
-          "Could have explored client's specific needs more deeply",
-        ],
-        actionable_recommendations: [
-          "Start with more discovery questions before making recommendations",
-          "Explain product benefits in more detail, connecting them to client needs",
-          "Prepare responses for common objections beyond price",
-          "Use more comparative language when presenting multiple options",
-          "Add a specific call-to-action at the end of the conversation",
-        ],
-        missed_opportunities: [
-          "Didn't ask enough discovery questions before recommending products",
-          "Limited explanation of product benefits",
-          "Didn't address potential health condition concerns",
-          "Could have explored client's specific needs more deeply",
-        ],
-        suggested_training_focus: [
-          "Start with more discovery questions before making recommendations",
-          "Explain product benefits in more detail, connecting them to client needs",
-          "Prepare responses for common objections beyond price",
-          "Use more comparative language when presenting multiple options",
-          "Add a specific call-to-action at the end of the conversation",
-        ],
-        final_score: "8.5",
-        topics: [
-          "Health Insurance",
-          "Sales Call",
-          "Product Recommendations",
-          "Price Concerns",
-          "Alternative Options",
-        ],
-        keywords: [
-          "Health Insurance",
-          "Sales Call",
-          "Product Recommendations",
-          "Price Concerns",
-          "Alternative Options",
-        ],
-        total_call_duration: "5 minutes",
-        identity_name: `${identityInfo.emoji} ${identityInfo.name}`,
-        identity_description: identityInfo.description,
-      },
-    };
   };
 
   const renderFeedbackSection = ({
@@ -1200,7 +695,7 @@ export function CallAnalyzer() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  {analysis.summary && (
+                  {analysis.summary && analysis.summary.trim() !== "" && (
                     <div className="mb-6">
                       <h3 className="text-lg font-medium mb-2">Call Summary</h3>
                       <div className="bg-muted p-4 rounded-md text-sm">
@@ -1269,7 +764,9 @@ export function CallAnalyzer() {
                     </CardHeader>
                     <CardContent className="max-h-96 overflow-y-auto">
                       <div className="bg-muted p-4 rounded-md text-sm whitespace-pre-wrap leading-relaxed">
-                        {analysis.analysis || "No detailed analysis available"}
+                        {analysis.analysis && analysis.analysis.trim() !== ""
+                          ? analysis.analysis
+                          : "No detailed analysis available"}
                       </div>
                     </CardContent>
                   </Card>
@@ -1289,47 +786,63 @@ export function CallAnalyzer() {
                       <div className="flex flex-col space-y-4">
                         {analysis.topics &&
                           Array.isArray(analysis.topics) &&
-                          analysis.topics.length > 0 && (
+                          analysis.topics.length > 0 &&
+                          analysis.topics.some(
+                            (topic) => topic && topic.trim() !== "",
+                          ) && (
                             <div>
                               <h4 className="font-medium text-sm text-gray-500 mb-1">
                                 CALL TOPICS
                               </h4>
                               <div className="flex flex-wrap gap-2">
-                                {analysis.topics.map((topic, index) => (
-                                  <span
-                                    key={index}
-                                    className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs"
-                                  >
-                                    {topic}
-                                  </span>
-                                ))}
+                                {analysis.topics
+                                  .filter(
+                                    (topic) => topic && topic.trim() !== "",
+                                  )
+                                  .map((topic, index) => (
+                                    <span
+                                      key={index}
+                                      className="px-2 py-1 bg-purple-100 text-purple-800 rounded-full text-xs"
+                                    >
+                                      {topic}
+                                    </span>
+                                  ))}
                               </div>
                             </div>
                           )}
 
                         {analysis.keywords &&
                           Array.isArray(analysis.keywords) &&
-                          analysis.keywords.length > 0 && (
+                          analysis.keywords.length > 0 &&
+                          analysis.keywords.some(
+                            (keyword) => keyword && keyword.trim() !== "",
+                          ) && (
                             <div>
                               <h4 className="font-medium text-sm text-gray-500 mb-1">
                                 KEY TERMS
                               </h4>
                               <div className="flex flex-wrap gap-2">
-                                {analysis.keywords.map((keyword, index) => (
-                                  <span
-                                    key={index}
-                                    className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs"
-                                  >
-                                    {keyword}
-                                  </span>
-                                ))}
+                                {analysis.keywords
+                                  .filter(
+                                    (keyword) =>
+                                      keyword && keyword.trim() !== "",
+                                  )
+                                  .map((keyword, index) => (
+                                    <span
+                                      key={index}
+                                      className="px-2 py-1 bg-blue-100 text-blue-800 rounded-full text-xs"
+                                    >
+                                      {keyword}
+                                    </span>
+                                  ))}
                               </div>
                             </div>
                           )}
 
                         {analysis.suggested_training_focus &&
                           typeof analysis.suggested_training_focus ===
-                            "string" && (
+                            "string" &&
+                          analysis.suggested_training_focus.trim() !== "" && (
                             <div>
                               <h4 className="font-medium text-sm text-gray-500 mb-1">
                                 SUGGESTED TRAINING FOCUS
