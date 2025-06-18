@@ -277,15 +277,26 @@ export function CallAnalyzer() {
       let parsedResults = analysisResults;
       if (typeof analysisResults === "string") {
         console.log(
-          "Analysis results is a string, attempting to parse as JSON",
+          "Analysis results is a string, checking if it's JSON or plain text",
         );
-        try {
-          parsedResults = JSON.parse(analysisResults);
-        } catch (parseError) {
-          console.error(
-            "Failed to parse analysis results as JSON:",
-            parseError,
-          );
+        // Check if the string starts with '{' or '[' to determine if it's JSON
+        if (
+          analysisResults.trim().startsWith("{") ||
+          analysisResults.trim().startsWith("[")
+        ) {
+          try {
+            parsedResults = JSON.parse(analysisResults);
+            console.log("Successfully parsed JSON from string:", parsedResults);
+          } catch (parseError) {
+            console.error(
+              "Failed to parse analysis results as JSON:",
+              parseError,
+            );
+            parsedResults = { analysis: analysisResults };
+          }
+        } else {
+          // It's plain text, treat it as the analysis field
+          console.log("Treating string as plain text analysis");
           parsedResults = { analysis: analysisResults };
         }
         console.log("Parsed results from string:", parsedResults);
@@ -743,36 +754,59 @@ export function CallAnalyzer() {
                             return "No detailed analysis available";
                           }
 
-                          // Check if analysis contains comma-separated items that should be formatted as a list
-                          if (analysis.analysis.includes(".,")) {
-                            const items = analysis.analysis
-                              .split(".,")
+                          // Check if analysis contains bullet points or recommendations that should be formatted as a list
+                          const analysisText = analysis.analysis;
+
+                          // Split by common patterns that indicate separate recommendations
+                          let items: string[] = [];
+
+                          // Try different splitting patterns
+                          if (analysisText.includes("',")) {
+                            // Split by quote-comma pattern
+                            items = analysisText
+                              .split("',")
                               .map((item) =>
-                                item
-                                  .trim()
-                                  .replace(/^,/, "")
-                                  .replace(/\.$/, ""),
+                                item.trim().replace(/^['"]|['"]$/g, ""),
                               )
                               .filter((item) => item.length > 0);
+                          } else if (
+                            analysisText.includes(", ") &&
+                            analysisText.length > 100
+                          ) {
+                            // Split by comma-space for longer text
+                            items = analysisText
+                              .split(", ")
+                              .map((item) => item.trim())
+                              .filter((item) => item.length > 20); // Only split if items are substantial
+                          }
 
+                          // If we found multiple items, format as a list
+                          if (items.length > 1) {
                             return (
-                              <ul className="space-y-2">
+                              <ul className="space-y-3">
                                 {items.map((item, index) => (
                                   <li
                                     key={index}
                                     className="flex items-start gap-2"
                                   >
-                                    <span className="text-purple-600 mt-1">
+                                    <span className="text-purple-600 mt-1 font-bold">
                                       •
                                     </span>
-                                    <span>{item}</span>
+                                    <span className="leading-relaxed">
+                                      {item}
+                                    </span>
                                   </li>
                                 ))}
                               </ul>
                             );
                           }
 
-                          return analysis.analysis;
+                          // Otherwise, return as plain text with proper formatting
+                          return (
+                            <div className="leading-relaxed whitespace-pre-wrap">
+                              {analysisText}
+                            </div>
+                          );
                         })()}
                       </div>
                     </CardContent>
