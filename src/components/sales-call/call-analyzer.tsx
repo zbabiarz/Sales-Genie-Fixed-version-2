@@ -296,6 +296,26 @@ export function CallAnalyzer() {
         console.log("Parsed results from string:", parsedResults);
       }
 
+      // Ensure parsedResults has the correct structure for N8N data
+      if (parsedResults && typeof parsedResults === "object") {
+        // Handle the case where analysis field contains comma-separated recommendations
+        if (
+          parsedResults.analysis &&
+          typeof parsedResults.analysis === "string" &&
+          parsedResults.analysis.includes(".,") &&
+          (!parsedResults.missed_opportunities ||
+            parsedResults.missed_opportunities.length === 0)
+        ) {
+          // Split the analysis field into missed_opportunities if it contains comma-separated items
+          const analysisItems = parsedResults.analysis
+            .split(".,")
+            .map((item) => item.trim().replace(/^,/, "").replace(/\.$/, ""));
+          if (analysisItems.length > 1) {
+            parsedResults.missed_opportunities = analysisItems;
+          }
+        }
+      }
+
       // Map the analysis results to our expected format
       const scoreValue =
         parsedResults.final_score &&
@@ -1185,22 +1205,28 @@ export function CallAnalyzer() {
 
                   {renderFeedbackSection({
                     title: "Strengths",
-                    items: Array.isArray(analysis.agents_strengths)
-                      ? analysis.agents_strengths
-                      : Array.isArray(analysis.strengths)
-                        ? analysis.strengths
-                        : [],
+                    items:
+                      Array.isArray(analysis.agents_strengths) &&
+                      analysis.agents_strengths.length > 0
+                        ? analysis.agents_strengths
+                        : Array.isArray(analysis.strengths) &&
+                            analysis.strengths.length > 0
+                          ? analysis.strengths
+                          : [],
                     icon: <CheckCircle className="h-5 w-5" />,
                     color: "text-green-600",
                   })}
 
                   {renderFeedbackSection({
                     title: "Areas for Improvement",
-                    items: Array.isArray(analysis.areas_for_improvement)
-                      ? analysis.areas_for_improvement
-                      : Array.isArray(analysis.improvements)
-                        ? analysis.improvements
-                        : [],
+                    items:
+                      Array.isArray(analysis.areas_for_improvement) &&
+                      analysis.areas_for_improvement.length > 0
+                        ? analysis.areas_for_improvement
+                        : Array.isArray(analysis.improvements) &&
+                            analysis.improvements.length > 0
+                          ? analysis.improvements
+                          : [],
                     icon: <AlertCircle className="h-5 w-5" />,
                     color: "text-amber-600",
                   })}
@@ -1216,11 +1242,14 @@ export function CallAnalyzer() {
 
                   {renderFeedbackSection({
                     title: "Key Recommendations",
-                    items: Array.isArray(analysis.actionable_recommendations)
-                      ? analysis.actionable_recommendations
-                      : Array.isArray(analysis.recommendations)
-                        ? analysis.recommendations
-                        : [],
+                    items:
+                      Array.isArray(analysis.actionable_recommendations) &&
+                      analysis.actionable_recommendations.length > 0
+                        ? analysis.actionable_recommendations
+                        : Array.isArray(analysis.recommendations) &&
+                            analysis.recommendations.length > 0
+                          ? analysis.recommendations
+                          : [],
                     icon: <Lightbulb className="h-5 w-5" />,
                     color: "text-blue-600",
                   })}
