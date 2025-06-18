@@ -277,59 +277,30 @@ export function CallAnalyzer() {
       let parsedResults = analysisResults;
       if (typeof analysisResults === "string") {
         console.log(
-          "Analysis results is a string, attempting to parse or structure it",
+          "Analysis results is a string, attempting to parse as JSON",
         );
-        // Try to parse as JSON first
         try {
           parsedResults = JSON.parse(analysisResults);
         } catch (parseError) {
-          // If JSON parsing fails, treat as comma-separated string
-          const items = analysisResults.split(",").map((item) => item.trim());
-          parsedResults = {
-            agents_strengths: items.slice(0, Math.ceil(items.length / 3)),
-            areas_for_improvement: items.slice(
-              Math.ceil(items.length / 3),
-              Math.ceil((2 * items.length) / 3),
-            ),
-            actionable_recommendations: items.slice(
-              Math.ceil((2 * items.length) / 3),
-            ),
-            analysis: analysisResults,
-          };
+          console.error(
+            "Failed to parse analysis results as JSON:",
+            parseError,
+          );
+          parsedResults = { analysis: analysisResults };
         }
         console.log("Parsed results from string:", parsedResults);
       }
 
-      // Ensure parsedResults has the correct structure for N8N data
-      if (parsedResults && typeof parsedResults === "object") {
-        // Handle the case where analysis field contains comma-separated recommendations
-        if (
-          parsedResults.analysis &&
-          typeof parsedResults.analysis === "string" &&
-          parsedResults.analysis.includes(".,") &&
-          (!parsedResults.missed_opportunities ||
-            parsedResults.missed_opportunities.length === 0)
-        ) {
-          // Split the analysis field into missed_opportunities if it contains comma-separated items
-          const analysisItems = parsedResults.analysis
-            .split(".,")
-            .map((item) => item.trim().replace(/^,/, "").replace(/\.$/, ""));
-          if (analysisItems.length > 1) {
-            parsedResults.missed_opportunities = analysisItems;
-          }
-        }
-      }
-
       // Map the analysis results to our expected format
-      const scoreValue =
-        parsedResults.final_score &&
-        typeof parsedResults.final_score === "string"
-          ? parseFloat(parsedResults.final_score.split("/")[0]) ||
-            parseFloat(parsedResults.final_score)
-          : parsedResults.final_score &&
-              typeof parsedResults.final_score === "number"
-            ? parsedResults.final_score
-            : 0;
+      const scoreValue = (() => {
+        if (!parsedResults.final_score) return 0;
+
+        const scoreStr = parsedResults.final_score.toString();
+        if (scoreStr.includes("/")) {
+          return parseFloat(scoreStr.split("/")[0]) || 0;
+        }
+        return parseFloat(scoreStr) || 0;
+      })();
 
       // Get identity info based on score
       const identityInfo = getIdentityInfo(scoreValue);
@@ -763,10 +734,46 @@ export function CallAnalyzer() {
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="max-h-96 overflow-y-auto">
-                      <div className="bg-muted p-4 rounded-md text-sm whitespace-pre-wrap leading-relaxed">
-                        {analysis.analysis && analysis.analysis.trim() !== ""
-                          ? analysis.analysis
-                          : "No detailed analysis available"}
+                      <div className="bg-muted p-4 rounded-md text-sm leading-relaxed">
+                        {(() => {
+                          if (
+                            !analysis.analysis ||
+                            analysis.analysis.trim() === ""
+                          ) {
+                            return "No detailed analysis available";
+                          }
+
+                          // Check if analysis contains comma-separated items that should be formatted as a list
+                          if (analysis.analysis.includes(".,")) {
+                            const items = analysis.analysis
+                              .split(".,")
+                              .map((item) =>
+                                item
+                                  .trim()
+                                  .replace(/^,/, "")
+                                  .replace(/\.$/, ""),
+                              )
+                              .filter((item) => item.length > 0);
+
+                            return (
+                              <ul className="space-y-2">
+                                {items.map((item, index) => (
+                                  <li
+                                    key={index}
+                                    className="flex items-start gap-2"
+                                  >
+                                    <span className="text-purple-600 mt-1">
+                                      •
+                                    </span>
+                                    <span>{item}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            );
+                          }
+
+                          return analysis.analysis;
+                        })()}
                       </div>
                     </CardContent>
                   </Card>
@@ -867,14 +874,19 @@ export function CallAnalyzer() {
 
                                 if (analysis.final_score) {
                                   // Handle both "7.8" and "7.8/10" formats
-                                  if (analysis.final_score.includes("/")) {
+                                  if (
+                                    typeof analysis.final_score === "string" &&
+                                    analysis.final_score.includes("/")
+                                  ) {
                                     const parts =
                                       analysis.final_score.split("/");
                                     score = parseFloat(parts[0]) || 0;
                                     maxScore = parseFloat(parts[1]) || 10;
                                   } else {
                                     score =
-                                      parseFloat(analysis.final_score) || 0;
+                                      parseFloat(
+                                        analysis.final_score.toString(),
+                                      ) || 0;
                                     maxScore = 10;
                                   }
                                 } else if (analysis.sentiment?.score) {
@@ -903,13 +915,19 @@ export function CallAnalyzer() {
                               })()}
                             </div>
                             <span className="text-xl font-bold">
-                              {analysis.final_score
-                                ? analysis.final_score.includes("/")
-                                  ? analysis.final_score
-                                  : `${analysis.final_score}/10`
-                                : analysis.sentiment?.score
-                                  ? `${analysis.sentiment.score.toFixed(1)}/10`
-                                  : "N/A"}
+                              {(() => {
+                                if (analysis.final_score) {
+                                  const scoreStr =
+                                    analysis.final_score.toString();
+                                  return scoreStr.includes("/")
+                                    ? scoreStr
+                                    : `${scoreStr}/10`;
+                                } else if (analysis.sentiment?.score) {
+                                  return `${analysis.sentiment.score.toFixed(1)}/10`;
+                                } else {
+                                  return "N/A";
+                                }
+                              })()}
                             </span>
                           </div>
 
