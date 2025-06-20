@@ -813,7 +813,7 @@ export function CallAnalyzer() {
                     <CardHeader className="flex flex-row items-center gap-2 text-purple-600">
                       <Lightbulb className="h-5 w-5" />
                       <CardTitle className="text-lg">
-                        Suggested training focus
+                        Suggested Training Focus
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="max-h-96 overflow-y-auto">
