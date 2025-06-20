@@ -1,5 +1,6 @@
 import { TempoInit } from "@/components/tempo-init";
 import { BetaFeedbackButton } from "@/components/beta-feedback-button";
+import { Toaster } from "@/components/ui/toaster";
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import Script from "next/script";
@@ -44,6 +45,7 @@ export default function RootLayout({
         {children}
         <BetaFeedbackButton />
         <TempoInit />
+        <Toaster />
       </body>
     </html>
   );

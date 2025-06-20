@@ -38,6 +38,7 @@ interface InsurancePlan {
   isExpanded?: boolean;
   coverage_type?: string;
   is_popular?: boolean;
+  age_range?: string;
 }
 
 interface InsurancePlansTableProps {
@@ -78,6 +79,7 @@ export function InsurancePlansTable({
     {},
   );
   const [selectingPlan, setSelectingPlan] = useState<string | null>(null);
+  const [recentlySelectedPlans, setRecentlySelectedPlans] = useState<Record<string, boolean>>({});
   const supabase = createClient();
 
   // Get unique categories for filter
@@ -170,10 +172,24 @@ export function InsurancePlansTable({
         ? `${selectedPlan.company_name} - ${selectedPlan.product_name}`
         : "Selected plan";
 
+      // Enhanced success toast with action button
       toast({
-        title: "Plan selected",
-        description: `${planName} has been added to the client's selected plans.`,
+        title: "✅ Plan Successfully Selected!",
+        description: `${planName} has been added to the client's selected plans. You can view all selected plans in Client Management.`,
+        duration: 5000, // Show longer so user can read
       });
+
+      // Set recently selected state for visual feedback
+      setRecentlySelectedPlans(prev => ({ ...prev, [planId]: true }));
+
+      // Clear the recently selected state after 3 seconds
+      setTimeout(() => {
+        setRecentlySelectedPlans(prev => {
+          const newState = { ...prev };
+          delete newState[planId];
+          return newState;
+        });
+      }, 3000);
 
       // Dispatch a custom event to notify other components
       if (typeof window !== "undefined") {
@@ -741,7 +757,10 @@ export function InsurancePlansTable({
                             <div className="mt-4 flex justify-end">
                               <Button
                                 size="sm"
-                                className="bg-teal-600 hover:bg-teal-700"
+                                className={`${recentlySelectedPlans[plan.id]
+                                  ? "bg-green-600 hover:bg-green-700"
+                                  : "bg-teal-600 hover:bg-teal-700"
+                                  }`}
                                 onClick={() => handleSelectPlan(plan.id)}
                                 disabled={selectingPlan === plan.id}
                               >
@@ -749,6 +768,10 @@ export function InsurancePlansTable({
                                   <>
                                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
                                     Selecting...
+                                  </>
+                                ) : recentlySelectedPlans[plan.id] ? (
+                                  <>
+                                    ✓ Selected
                                   </>
                                 ) : (
                                   "Select This Plan"
@@ -997,7 +1020,10 @@ export function InsurancePlansTable({
                             <div className="mt-4 flex justify-end">
                               <Button
                                 size="sm"
-                                className="bg-teal-600 hover:bg-teal-700"
+                                className={`${recentlySelectedPlans[plan.id]
+                                  ? "bg-green-600 hover:bg-green-700"
+                                  : "bg-teal-600 hover:bg-teal-700"
+                                  }`}
                                 onClick={() => handleSelectPlan(plan.id)}
                                 disabled={selectingPlan === plan.id}
                               >
@@ -1005,6 +1031,10 @@ export function InsurancePlansTable({
                                   <>
                                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
                                     Selecting...
+                                  </>
+                                ) : recentlySelectedPlans[plan.id] ? (
+                                  <>
+                                    ✓ Selected
                                   </>
                                 ) : (
                                   "Select This Plan"
@@ -1183,7 +1213,10 @@ export function InsurancePlansTable({
                             <div className="mt-4 flex justify-end">
                               <Button
                                 size="sm"
-                                className="bg-teal-600 hover:bg-teal-700"
+                                className={`${recentlySelectedPlans[plan.id]
+                                  ? "bg-green-600 hover:bg-green-700"
+                                  : "bg-teal-600 hover:bg-teal-700"
+                                  }`}
                                 onClick={() => handleSelectPlan(plan.id)}
                                 disabled={selectingPlan === plan.id}
                               >
@@ -1191,6 +1224,10 @@ export function InsurancePlansTable({
                                   <>
                                     <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent mr-2" />
                                     Selecting...
+                                  </>
+                                ) : recentlySelectedPlans[plan.id] ? (
+                                  <>
+                                    ✓ Selected
                                   </>
                                 ) : (
                                   "Select This Plan"
