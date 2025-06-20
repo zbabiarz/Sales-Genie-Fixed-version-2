@@ -279,59 +279,148 @@ export function CallAnalyzer() {
         console.log(
           "Analysis results is a string, checking if it's JSON or plain text",
         );
-        // Check if the string starts with '{' or '[' to determine if it's JSON
-        if (
-          analysisResults.trim().startsWith("{") ||
-          analysisResults.trim().startsWith("[")
-        ) {
-          try {
-            parsedResults = JSON.parse(analysisResults);
-            console.log("Successfully parsed JSON from string:", parsedResults);
-          } catch (parseError) {
-            console.error(
-              "Failed to parse analysis results as JSON:",
-              parseError,
-            );
-            parsedResults = { analysis: analysisResults };
-          }
-        } else {
-          // It's plain text, treat it as the analysis field
-          console.log("Treating string as plain text analysis");
-          parsedResults = { analysis: analysisResults };
-        }
+        // Don't try to parse as JSON - N8N sends comma-separated text
+        // Treat it as plain text analysis
+        console.log("Treating string as plain text analysis from N8N");
+        parsedResults = { analysis: analysisResults };
         console.log("Parsed results from string:", parsedResults);
       }
 
       // Map the analysis results to our expected format
+      // For N8N data, extract score from the analysis text
       const scoreValue = (() => {
-        if (!parsedResults.final_score) return 0;
-
-        const scoreStr = parsedResults.final_score.toString();
-        if (scoreStr.includes("/")) {
-          return parseFloat(scoreStr.split("/")[0]) || 0;
+        if (parsedResults.final_score) {
+          const scoreStr = parsedResults.final_score.toString();
+          if (scoreStr.includes("/")) {
+            return parseFloat(scoreStr.split("/")[0]) || 0;
+          }
+          return parseFloat(scoreStr) || 0;
         }
-        return parseFloat(scoreStr) || 0;
+
+        // Try to extract score from analysis text for N8N data
+        if (
+          parsedResults.analysis &&
+          typeof parsedResults.analysis === "string"
+        ) {
+          // Look for patterns like "7.8/10" or "Score: 7.8" in the text
+          const scoreMatch = parsedResults.analysis.match(
+            /(?:score[:\s]*|rating[:\s]*)([0-9]+\.?[0-9]*)(?:\/10)?/i,
+          );
+          if (scoreMatch) {
+            return parseFloat(scoreMatch[1]) || 0;
+          }
+        }
+
+        return 0;
       })();
 
       // Get identity info based on score
       const identityInfo = getIdentityInfo(scoreValue);
+
+      // For N8N data, parse the comma-separated analysis text into structured data
+      const parseN8NAnalysis = (analysisText: string) => {
+        if (!analysisText || typeof analysisText !== "string") {
+          return {
+            strengths: [],
+            improvements: [],
+            recommendations: [],
+            analysis: analysisText || "",
+          };
+        }
+
+        // Split by comma and clean up each item
+        const items = analysisText
+          .split(",")
+          .map((item) => item.trim())
+          .filter((item) => item.length > 5); // Filter out very short items
+
+        console.log("Parsed N8N items:", items);
+
+        // Since the data you provided appears to be all recommendations/suggestions,
+        // we'll categorize them more intelligently
+        const strengths: string[] = [];
+        const improvements: string[] = [];
+        const recommendations: string[] = [];
+
+        items.forEach((item) => {
+          // Clean up the item text
+          let cleanItem = item.trim();
+
+          // Remove any leading/trailing quotes
+          cleanItem = cleanItem.replace(/^["']+|["']+$/g, "");
+
+          // Skip empty items
+          if (!cleanItem) return;
+
+          // Categorize based on content patterns
+          if (
+            /asking|exploring|probing|using|inviting|try asking|consider asking/i.test(
+              cleanItem,
+            )
+          ) {
+            // These are recommendations for questions to ask or techniques to use
+            recommendations.push(cleanItem);
+          } else if (
+            /good|excellent|well done|strength|positive|effective|successfully/i.test(
+              cleanItem,
+            )
+          ) {
+            // These indicate strengths
+            strengths.push(cleanItem);
+          } else if (
+            /improve|better|should|could|need|lack|weak|miss|avoid|don't/i.test(
+              cleanItem,
+            )
+          ) {
+            // These indicate areas for improvement
+            improvements.push(cleanItem);
+          } else {
+            // Default to recommendations if unclear
+            recommendations.push(cleanItem);
+          }
+        });
+
+        console.log("Categorized results:", {
+          strengths,
+          improvements,
+          recommendations,
+        });
+
+        return {
+          strengths,
+          improvements,
+          recommendations,
+          analysis: analysisText,
+        };
+      };
+
+      // Parse N8N data if it's a string
+      const n8nData =
+        typeof parsedResults.analysis === "string"
+          ? parseN8NAnalysis(parsedResults.analysis)
+          : {
+              strengths: [],
+              improvements: [],
+              recommendations: [],
+              analysis: "",
+            };
 
       const mappedAnalysis: CallAnalysis = {
         strengths: Array.isArray(parsedResults.agents_strengths)
           ? parsedResults.agents_strengths
           : parsedResults.agents_strengths
             ? [parsedResults.agents_strengths]
-            : [],
+            : n8nData.strengths,
         improvements: Array.isArray(parsedResults.areas_for_improvement)
           ? parsedResults.areas_for_improvement
           : parsedResults.areas_for_improvement
             ? [parsedResults.areas_for_improvement]
-            : [],
+            : n8nData.improvements,
         recommendations: Array.isArray(parsedResults.actionable_recommendations)
           ? parsedResults.actionable_recommendations
           : parsedResults.actionable_recommendations
             ? [parsedResults.actionable_recommendations]
-            : [],
+            : n8nData.recommendations,
         summary: parsedResults.summary || "",
         sentiment: parsedResults.sentiment || {
           overall: "",
@@ -343,21 +432,21 @@ export function CallAnalyzer() {
           ? parsedResults.agents_strengths
           : parsedResults.agents_strengths
             ? [parsedResults.agents_strengths]
-            : [],
+            : n8nData.strengths,
         areas_for_improvement: Array.isArray(
           parsedResults.areas_for_improvement,
         )
           ? parsedResults.areas_for_improvement
           : parsedResults.areas_for_improvement
             ? [parsedResults.areas_for_improvement]
-            : [],
+            : n8nData.improvements,
         actionable_recommendations: Array.isArray(
           parsedResults.actionable_recommendations,
         )
           ? parsedResults.actionable_recommendations
           : parsedResults.actionable_recommendations
             ? [parsedResults.actionable_recommendations]
-            : [],
+            : n8nData.recommendations,
         missed_opportunities: Array.isArray(parsedResults.missed_opportunities)
           ? parsedResults.missed_opportunities
           : parsedResults.missed_opportunities
@@ -367,12 +456,7 @@ export function CallAnalyzer() {
           typeof parsedResults.suggested_training_focus === "string"
             ? parsedResults.suggested_training_focus
             : "",
-        final_score:
-          typeof parsedResults.final_score === "string"
-            ? parsedResults.final_score
-            : typeof parsedResults.final_score === "number"
-              ? parsedResults.final_score.toString()
-              : "0",
+        final_score: scoreValue > 0 ? `${scoreValue}/10` : "0/10",
         topics: Array.isArray(parsedResults.topics)
           ? parsedResults.topics
           : parsedResults.topics
@@ -387,12 +471,7 @@ export function CallAnalyzer() {
           typeof parsedResults.total_call_duration === "string"
             ? parsedResults.total_call_duration
             : "",
-        analysis:
-          typeof parsedResults.analysis === "string"
-            ? parsedResults.analysis
-            : typeof analysisResults === "string"
-              ? analysisResults
-              : "",
+        analysis: n8nData.analysis || parsedResults.analysis || "",
         identity_name: `${identityInfo.emoji} ${identityInfo.name}`,
         identity_description: identityInfo.description,
       };
@@ -692,10 +771,7 @@ export function CallAnalyzer() {
                       Array.isArray(analysis.agents_strengths) &&
                       analysis.agents_strengths.length > 0
                         ? analysis.agents_strengths
-                        : Array.isArray(analysis.strengths) &&
-                            analysis.strengths.length > 0
-                          ? analysis.strengths
-                          : [],
+                        : [],
                     icon: <CheckCircle className="h-5 w-5" />,
                     color: "text-green-600",
                   })}
@@ -706,22 +782,21 @@ export function CallAnalyzer() {
                       Array.isArray(analysis.areas_for_improvement) &&
                       analysis.areas_for_improvement.length > 0
                         ? analysis.areas_for_improvement
-                        : Array.isArray(analysis.improvements) &&
-                            analysis.improvements.length > 0
-                          ? analysis.improvements
-                          : [],
+                        : [],
                     icon: <AlertCircle className="h-5 w-5" />,
                     color: "text-amber-600",
                   })}
 
-                  {Array.isArray(analysis.missed_opportunities) &&
-                    analysis.missed_opportunities.length > 0 &&
-                    renderFeedbackSection({
-                      title: "Missed Opportunities",
-                      items: analysis.missed_opportunities,
-                      icon: <AlertCircle className="h-5 w-5" />,
-                      color: "text-orange-600",
-                    })}
+                  {renderFeedbackSection({
+                    title: "Missed Opportunities",
+                    items:
+                      Array.isArray(analysis.missed_opportunities) &&
+                      analysis.missed_opportunities.length > 0
+                        ? analysis.missed_opportunities
+                        : [],
+                    icon: <AlertCircle className="h-5 w-5" />,
+                    color: "text-orange-600",
+                  })}
 
                   {renderFeedbackSection({
                     title: "Key Recommendations",
@@ -729,10 +804,7 @@ export function CallAnalyzer() {
                       Array.isArray(analysis.actionable_recommendations) &&
                       analysis.actionable_recommendations.length > 0
                         ? analysis.actionable_recommendations
-                        : Array.isArray(analysis.recommendations) &&
-                            analysis.recommendations.length > 0
-                          ? analysis.recommendations
-                          : [],
+                        : [],
                     icon: <Lightbulb className="h-5 w-5" />,
                     color: "text-blue-600",
                   })}
@@ -741,40 +813,41 @@ export function CallAnalyzer() {
                     <CardHeader className="flex flex-row items-center gap-2 text-purple-600">
                       <Lightbulb className="h-5 w-5" />
                       <CardTitle className="text-lg">
-                        Detailed Analysis
+                        Suggested training focus
                       </CardTitle>
                     </CardHeader>
                     <CardContent className="max-h-96 overflow-y-auto">
                       <div className="bg-muted p-4 rounded-md text-sm leading-relaxed">
                         {(() => {
                           if (
-                            !analysis.analysis ||
-                            analysis.analysis.trim() === ""
+                            !analysis.suggested_training_focus ||
+                            analysis.suggested_training_focus.trim() === ""
                           ) {
-                            return "No detailed analysis available";
+                            return "No training focus suggestions available";
                           }
 
-                          // Check if analysis contains bullet points or recommendations that should be formatted as a list
-                          const analysisText = analysis.analysis;
+                          // Use the suggested_training_focus field directly
+                          const trainingFocusText =
+                            analysis.suggested_training_focus;
 
                           // Split by common patterns that indicate separate recommendations
                           let items: string[] = [];
 
                           // Try different splitting patterns
-                          if (analysisText.includes("',")) {
+                          if (trainingFocusText.includes("',")) {
                             // Split by quote-comma pattern
-                            items = analysisText
+                            items = trainingFocusText
                               .split("',")
                               .map((item) =>
                                 item.trim().replace(/^['"]|['"]$/g, ""),
                               )
                               .filter((item) => item.length > 0);
                           } else if (
-                            analysisText.includes(", ") &&
-                            analysisText.length > 100
+                            trainingFocusText.includes(", ") &&
+                            trainingFocusText.length > 100
                           ) {
                             // Split by comma-space for longer text
-                            items = analysisText
+                            items = trainingFocusText
                               .split(", ")
                               .map((item) => item.trim())
                               .filter((item) => item.length > 20); // Only split if items are substantial
@@ -804,7 +877,7 @@ export function CallAnalyzer() {
                           // Otherwise, return as plain text with proper formatting
                           return (
                             <div className="leading-relaxed whitespace-pre-wrap">
-                              {analysisText}
+                              {trainingFocusText}
                             </div>
                           );
                         })()}
@@ -877,20 +950,6 @@ export function CallAnalyzer() {
                                     </span>
                                   ))}
                               </div>
-                            </div>
-                          )}
-
-                        {analysis.suggested_training_focus &&
-                          typeof analysis.suggested_training_focus ===
-                            "string" &&
-                          analysis.suggested_training_focus.trim() !== "" && (
-                            <div>
-                              <h4 className="font-medium text-sm text-gray-500 mb-1">
-                                SUGGESTED TRAINING FOCUS
-                              </h4>
-                              <p className="text-lg font-medium">
-                                {analysis.suggested_training_focus}
-                              </p>
                             </div>
                           )}
 
