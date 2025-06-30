@@ -172,6 +172,7 @@ export const signOutAction = async () => {
 export const checkUserSubscription = async (userId: string) => {
   const supabase = await createClient();
 
+  // First try to find by user_id directly
   const { data: subscription, error } = await supabase
     .from("subscriptions")
     .select("*")
@@ -188,10 +189,47 @@ export const checkUserSubscription = async (userId: string) => {
     console.log("Subscription found:", subscription ? subscription.id : "none");
   }
 
-  if (error) {
-    console.log("Subscription check error:", error);
-    return false;
+  if (subscription) {
+    return true;
   }
 
-  return !!subscription;
+  // If no subscription found by user ID, try by email
+  const { data: user } = await supabase.auth.getUser();
+  if (user?.user?.email) {
+    console.log("Trying to find subscription by email:", user.user.email);
+
+    const { data: subscriptionByEmail, error: emailError } = await supabase
+      .from("subscriptions")
+      .select("*")
+      .or(
+        `metadata->>'email'.eq.${user.user.email},metadata->>'customer_email'.eq.${user.user.email}`,
+      )
+      .or(`status.eq.active,status.eq.trialing`)
+      .single();
+
+    console.log("Email-based subscription check result:", {
+      subscriptionByEmail,
+      emailError,
+    });
+
+    if (subscriptionByEmail) {
+      console.log("Found subscription by email:", subscriptionByEmail.id);
+
+      // Update the subscription with the correct user_id
+      const { error: updateError } = await supabase
+        .from("subscriptions")
+        .update({ user_id: userId })
+        .eq("id", subscriptionByEmail.id);
+
+      if (updateError) {
+        console.error("Error updating subscription with user ID:", updateError);
+      } else {
+        console.log("Updated subscription with correct user ID");
+      }
+
+      return true;
+    }
+  }
+
+  return false;
 };

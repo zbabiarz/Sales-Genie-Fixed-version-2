@@ -357,6 +357,8 @@ async function handleCheckoutSessionCompleted(
     console.log("Metadata to be added:", {
       ...session.metadata,
       checkoutSessionId: session.id,
+      email: session.customer_email, // Add email to metadata for easier lookup
+      customer_email: session.customer_email, // Add customer_email to metadata for easier lookup
     });
 
     // Fetch the current subscription from Stripe to get the latest status
@@ -373,6 +375,8 @@ async function handleCheckoutSessionCompleted(
         metadata: {
           ...session.metadata,
           checkoutSessionId: session.id,
+          email: session.customer_email, // Add email to metadata for easier lookup
+          customer_email: session.customer_email, // Add customer_email to metadata for easier lookup
         },
       },
     );
@@ -402,6 +406,31 @@ async function handleCheckoutSessionCompleted(
       session.client_reference_id;
 
     console.log("User ID being set for subscription:", userId);
+    console.log(
+      "Customer email being set for subscription:",
+      session.customer_email,
+    );
+
+    // If we have an email, try to find the user by email
+    let finalUserId = userId;
+    if (
+      session.customer_email &&
+      (!userId || userId === "undefined" || userId === "null")
+    ) {
+      console.log("Looking up user by email:", session.customer_email);
+      const { data: userByEmail, error: emailError } = await supabaseClient
+        .from("users")
+        .select("id")
+        .eq("email", session.customer_email)
+        .single();
+
+      if (emailError) {
+        console.log("Error finding user by email:", emailError.message);
+      } else if (userByEmail) {
+        console.log("Found user by email:", userByEmail.id);
+        finalUserId = userByEmail.id;
+      }
+    }
 
     const supabaseUpdateResult = await supabaseClient
       .from("subscriptions")
@@ -410,8 +439,10 @@ async function handleCheckoutSessionCompleted(
           ...session.metadata,
           checkoutSessionId: session.id,
           client_reference_id: session.client_reference_id,
+          email: session.customer_email, // Add email to metadata for easier lookup
+          customer_email: session.customer_email, // Add customer_email to metadata for easier lookup
         },
-        user_id: userId,
+        user_id: finalUserId,
         status: stripeSubscription.status, // Update the status from Stripe
         current_period_start: stripeSubscription.current_period_start,
         current_period_end: stripeSubscription.current_period_end,

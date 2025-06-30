@@ -35,7 +35,13 @@ export function SubscriptionCheck({
           return;
         }
 
-        // Check if user has an active subscription
+        console.log(
+          "Checking subscription for user:",
+          data.user.id,
+          data.user.email,
+        );
+
+        // First try to find by user_id directly
         const { data: subscription, error: subscriptionError } = await supabase
           .from("subscriptions")
           .select("*")
@@ -45,26 +51,62 @@ export function SubscriptionCheck({
           .or(`status.eq.active,status.eq.trialing`)
           .single();
 
-        console.log("User ID being checked:", data.user.id);
-        console.log("Subscription check result:", {
-          subscription,
-          subscriptionError,
-        });
-
-        console.log("Subscription check result:", {
+        console.log("Direct user ID subscription check result:", {
           subscription,
           subscriptionError,
         });
 
         if (subscription) {
+          console.log("Found subscription by user ID:", subscription.id);
           setIsAuthorized(true);
-        } else {
-          console.log(
-            "No active subscription found, redirecting to",
-            redirectTo,
-          );
-          router.push(redirectTo);
+          return;
         }
+
+        // If no subscription found by user ID, try by email
+        if (data.user.email) {
+          console.log("Trying to find subscription by email:", data.user.email);
+
+          // Get customer by email from Stripe
+          const { data: userByEmail, error: emailError } = await supabase
+            .from("subscriptions")
+            .select("*")
+            .or(
+              `metadata->>'email'.eq.${data.user.email},metadata->>'customer_email'.eq.${data.user.email}`,
+            )
+            .or(`status.eq.active,status.eq.trialing`)
+            .single();
+
+          console.log("Email-based subscription check result:", {
+            userByEmail,
+            emailError,
+          });
+
+          if (userByEmail) {
+            console.log("Found subscription by email:", userByEmail.id);
+
+            // Update the subscription with the correct user_id
+            const { error: updateError } = await supabase
+              .from("subscriptions")
+              .update({ user_id: data.user.id })
+              .eq("id", userByEmail.id);
+
+            if (updateError) {
+              console.error(
+                "Error updating subscription with user ID:",
+                updateError,
+              );
+            } else {
+              console.log("Updated subscription with correct user ID");
+            }
+
+            setIsAuthorized(true);
+            return;
+          }
+        }
+
+        // If we get here, no subscription was found
+        console.log("No active subscription found, redirecting to", redirectTo);
+        router.push(redirectTo);
       } catch (error) {
         console.error("Error checking subscription:", error);
         // Redirect to sign-in page for any authentication-related errors
