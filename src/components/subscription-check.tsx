@@ -39,9 +39,22 @@ export function SubscriptionCheck({
         const { data: subscription, error: subscriptionError } = await supabase
           .from("subscriptions")
           .select("*")
-          .eq("user_id", data.user.id)
-          .eq("status", "active")
+          .or(
+            `user_id.eq.${data.user.id},metadata->>'user_id'.eq.${data.user.id},metadata->>'userId'.eq.${data.user.id},metadata->>'client_reference_id'.eq.${data.user.id}`,
+          )
+          .or(`status.eq.active,status.eq.trialing`)
           .single();
+
+        console.log("User ID being checked:", data.user.id);
+        console.log("Subscription check result:", {
+          subscription,
+          subscriptionError,
+        });
+
+        console.log("Subscription check result:", {
+          subscription,
+          subscriptionError,
+        });
 
         if (subscription) {
           setIsAuthorized(true);

@@ -44,10 +44,14 @@ serve(async (req) => {
       client_reference_id: user_id,
       metadata: {
         user_id: user_id,
+        userId: user_id, // Adding userId as an alternative key for compatibility
+        client_reference_id: user_id, // Additional reference for lookup
       },
       subscription_data: {
         metadata: {
           user_id: user_id,
+          userId: user_id, // Adding userId as an alternative key for compatibility
+          client_reference_id: user_id, // Additional reference for lookup
         },
       },
     });

@@ -40,6 +40,7 @@ export const signUpAction = async (formData: FormData) => {
 
   if (user) {
     try {
+      // Create user record in public.users table
       const { error: updateError } = await supabase.from("users").insert({
         id: user.id,
         user_id: user.id,
@@ -50,16 +51,24 @@ export const signUpAction = async (formData: FormData) => {
       });
 
       if (updateError) {
-        // Error handling without console.error
+        console.log("Error creating user record:", updateError.message);
+      } else {
+        console.log("Successfully created user record for ID:", user.id);
       }
 
       // Sign in the user immediately after sign up
-      await supabase.auth.signInWithPassword({
+      const { error: signInError } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
-    } catch (err) {
-      // Error handling without console.error
+
+      if (signInError) {
+        console.log("Error signing in user after signup:", signInError.message);
+      } else {
+        console.log("Successfully signed in user after signup:", user.id);
+      }
+    } catch (err: any) {
+      console.log("Exception during user creation:", err.message);
     }
   }
 
@@ -166,11 +175,21 @@ export const checkUserSubscription = async (userId: string) => {
   const { data: subscription, error } = await supabase
     .from("subscriptions")
     .select("*")
-    .eq("user_id", userId)
-    .eq("status", "active")
+    .or(
+      `user_id.eq.${userId},metadata->>'user_id'.eq.${userId},metadata->>'userId'.eq.${userId},metadata->>'client_reference_id'.eq.${userId}`,
+    )
+    .or(`status.eq.active,status.eq.trialing`)
     .single();
 
+  console.log("Checking subscription for user:", userId);
   if (error) {
+    console.log("Subscription check error:", error.message);
+  } else {
+    console.log("Subscription found:", subscription ? subscription.id : "none");
+  }
+
+  if (error) {
+    console.log("Subscription check error:", error);
     return false;
   }
 
