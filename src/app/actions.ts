@@ -35,41 +35,122 @@ export const signUpAction = async (formData: FormData) => {
   });
 
   if (error) {
+    console.error("Auth signup error:", error.message);
     return encodedRedirect("error", "/sign-up", error.message);
   }
 
-  if (user) {
+  if (!user || !user.id) {
+    console.error("No user returned from auth.signUp");
+    return encodedRedirect(
+      "error",
+      "/sign-up",
+      "Failed to create user account",
+    );
+  }
+
+  console.log("User created in auth system with ID:", user.id);
+
+  // Create user record in public.users table - with multiple retries
+  let userCreated = false;
+  let retryCount = 0;
+  const maxRetries = 3;
+
+  while (!userCreated && retryCount < maxRetries) {
     try {
-      // Create user record in public.users table
-      const { error: updateError } = await supabase.from("users").insert({
+      const userData = {
         id: user.id,
         user_id: user.id,
         name: fullName,
         email: email,
         token_identifier: user.id,
         created_at: new Date().toISOString(),
-      });
+      };
+
+      console.log(`Attempt ${retryCount + 1} to create user record:`, userData);
+
+      const { error: updateError, data: insertedUser } = await supabase
+        .from("users")
+        .upsert(userData)
+        .select()
+        .single();
 
       if (updateError) {
-        console.log("Error creating user record:", updateError.message);
+        console.error(
+          `Error creating user record (attempt ${retryCount + 1}):`,
+          updateError,
+        );
+        retryCount++;
+        if (retryCount < maxRetries) {
+          // Wait before retrying (exponential backoff)
+          await new Promise((resolve) =>
+            setTimeout(resolve, 1000 * Math.pow(2, retryCount)),
+          );
+        }
       } else {
-        console.log("Successfully created user record for ID:", user.id);
-      }
+        console.log("Successfully created user record:", insertedUser);
+        userCreated = true;
 
-      // Sign in the user immediately after sign up
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+        // Verify the user was actually created
+        const { data: verifyUser, error: verifyError } = await supabase
+          .from("users")
+          .select()
+          .eq("id", user.id)
+          .single();
 
-      if (signInError) {
-        console.log("Error signing in user after signup:", signInError.message);
-      } else {
-        console.log("Successfully signed in user after signup:", user.id);
+        if (verifyError || !verifyUser) {
+          console.error(
+            "User verification failed after insert:",
+            verifyError || "No user found",
+          );
+          userCreated = false;
+          retryCount++;
+        } else {
+          console.log("User verified in database:", verifyUser);
+        }
       }
     } catch (err: any) {
-      console.log("Exception during user creation:", err.message);
+      console.error(
+        `Exception during user creation (attempt ${retryCount + 1}):`,
+        err,
+      );
+      retryCount++;
+      if (retryCount < maxRetries) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, 1000 * Math.pow(2, retryCount)),
+        );
+      }
     }
+  }
+
+  if (!userCreated) {
+    console.error("Failed to create user record after multiple attempts");
+    // Consider whether to return an error or continue - we'll continue since auth was successful
+  }
+
+  // Sign in the user only after ensuring the user record exists
+  try {
+    const { error: signInError } = await supabase.auth.signInWithPassword({
+      email,
+      password,
+    });
+
+    if (signInError) {
+      console.error("Error signing in user after signup:", signInError);
+      return encodedRedirect(
+        "error",
+        "/sign-up",
+        "Account created but sign-in failed. Please try signing in manually.",
+      );
+    }
+
+    console.log("Successfully signed in user after signup:", user.id);
+  } catch (signInErr: any) {
+    console.error("Exception during sign in:", signInErr);
+    return encodedRedirect(
+      "error",
+      "/sign-up",
+      "Account created but sign-in failed. Please try signing in manually.",
+    );
   }
 
   // Redirect to dashboard instead of showing success message
