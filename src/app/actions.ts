@@ -50,67 +50,79 @@ export const signUpAction = async (formData: FormData) => {
 
   console.log("User created in auth system with ID:", user.id);
 
-  // Create user record in public.users table - with multiple retries
-  let userCreated = false;
+  // Wait a moment for the database trigger to create the user record
+  await new Promise((resolve) => setTimeout(resolve, 1000));
+
+  // Verify the user record was created by the trigger
+  let userVerified = false;
   let retryCount = 0;
-  const maxRetries = 3;
+  const maxRetries = 5;
 
-  while (!userCreated && retryCount < maxRetries) {
+  while (!userVerified && retryCount < maxRetries) {
     try {
-      const userData = {
-        id: user.id,
-        user_id: user.id,
-        name: fullName,
-        email: email,
-        token_identifier: user.id,
-        created_at: new Date().toISOString(),
-      };
+      console.log(
+        `Attempt ${retryCount + 1} to verify user record for:`,
+        user.id,
+      );
 
-      console.log(`Attempt ${retryCount + 1} to create user record:`, userData);
-
-      const { error: updateError, data: insertedUser } = await supabase
+      const { data: verifyUser, error: verifyError } = await supabase
         .from("users")
-        .upsert(userData)
         .select()
+        .eq("id", user.id)
         .single();
 
-      if (updateError) {
+      if (verifyError) {
         console.error(
-          `Error creating user record (attempt ${retryCount + 1}):`,
-          updateError,
+          `Error verifying user record (attempt ${retryCount + 1}):`,
+          verifyError,
         );
-        retryCount++;
-        if (retryCount < maxRetries) {
-          // Wait before retrying (exponential backoff)
-          await new Promise((resolve) =>
-            setTimeout(resolve, 1000 * Math.pow(2, retryCount)),
-          );
+
+        // If user doesn't exist, try to create it manually as fallback
+        if (verifyError.code === "PGRST116") {
+          console.log("User record not found, creating manually as fallback");
+          const userData = {
+            id: user.id,
+            user_id: user.id,
+            name: fullName,
+            full_name: fullName,
+            email: email,
+            token_identifier: user.id,
+            created_at: new Date().toISOString(),
+          };
+
+          const { error: insertError, data: insertedUser } = await supabase
+            .from("users")
+            .upsert(userData)
+            .select()
+            .single();
+
+          if (insertError) {
+            console.error("Manual user creation failed:", insertError);
+          } else {
+            console.log(
+              "Successfully created user record manually:",
+              insertedUser,
+            );
+            userVerified = true;
+          }
+        }
+
+        if (!userVerified) {
+          retryCount++;
+          if (retryCount < maxRetries) {
+            // Wait before retrying (exponential backoff)
+            await new Promise((resolve) =>
+              setTimeout(resolve, 1000 * Math.pow(2, retryCount)),
+            );
+          }
         }
       } else {
-        console.log("Successfully created user record:", insertedUser);
-        userCreated = true;
-
-        // Verify the user was actually created
-        const { data: verifyUser, error: verifyError } = await supabase
-          .from("users")
-          .select()
-          .eq("id", user.id)
-          .single();
-
-        if (verifyError || !verifyUser) {
-          console.error(
-            "User verification failed after insert:",
-            verifyError || "No user found",
-          );
-          userCreated = false;
-          retryCount++;
-        } else {
-          console.log("User verified in database:", verifyUser);
-        }
+        console.log("User record verified in database:", verifyUser);
+        userVerified = true;
       }
     } catch (err: any) {
       console.error(
-        `Exception during user creation (attempt ${retryCount + 1}):`,
+        `Exception during user verification (attempt ${retryCount + 1}):`,
         err,
       );
       retryCount++;
@@ -122,9 +134,9 @@ export const signUpAction = async (formData: FormData) => {
     }
   }
 
-  if (!userCreated) {
-    console.error("Failed to create user record after multiple attempts");
-    // Consider whether to return an error or continue - we'll continue since auth was successful
+  if (!userVerified) {
+    console.error("Failed to verify user record after multiple attempts");
+    // Continue anyway since auth was successful - the trigger should have created the record
   }
 
   // Sign in the user only after ensuring the user record exists

@@ -94,6 +94,45 @@ export type Database = {
           },
         ]
       }
+      client_selected_plans: {
+        Row: {
+          client_id: string
+          created_at: string | null
+          id: string
+          insurance_plan_id: string
+          updated_at: string | null
+        }
+        Insert: {
+          client_id: string
+          created_at?: string | null
+          id?: string
+          insurance_plan_id: string
+          updated_at?: string | null
+        }
+        Update: {
+          client_id?: string
+          created_at?: string | null
+          id?: string
+          insurance_plan_id?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_selected_plans_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: false
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_selected_plans_insurance_plan_id_fkey"
+            columns: ["insurance_plan_id"]
+            isOneToOne: false
+            referencedRelation: "insurance_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           created_at: string | null
@@ -102,6 +141,8 @@ export type Database = {
           gender: string | null
           health_conditions: string[] | null
           height: number | null
+          height_feet: number | null
+          height_inches: number | null
           id: string
           medications: string[] | null
           state: string
@@ -117,6 +158,8 @@ export type Database = {
           gender?: string | null
           health_conditions?: string[] | null
           height?: number | null
+          height_feet?: number | null
+          height_inches?: number | null
           id?: string
           medications?: string[] | null
           state: string
@@ -132,6 +175,8 @@ export type Database = {
           gender?: string | null
           health_conditions?: string[] | null
           height?: number | null
+          height_feet?: number | null
+          height_inches?: number | null
           id?: string
           medications?: string[] | null
           state?: string
@@ -151,6 +196,8 @@ export type Database = {
           gender: string | null
           health_conditions: string[] | null
           height: number | null
+          height_feet: number | null
+          height_inches: number | null
           id: string
           medications: string[] | null
           relationship: string
@@ -165,6 +212,8 @@ export type Database = {
           gender?: string | null
           health_conditions?: string[] | null
           height?: number | null
+          height_feet?: number | null
+          height_inches?: number | null
           id?: string
           medications?: string[] | null
           relationship: string
@@ -179,6 +228,8 @@ export type Database = {
           gender?: string | null
           health_conditions?: string[] | null
           height?: number | null
+          height_feet?: number | null
+          height_inches?: number | null
           id?: string
           medications?: string[] | null
           relationship?: string
@@ -227,6 +278,10 @@ export type Database = {
           disqualifying_health_conditions: string[] | null
           disqualifying_medications: string[] | null
           gender: string | null
+          height_feet_max: number | null
+          height_feet_min: number | null
+          height_inches_max: number | null
+          height_inches_min: number | null
           id: string
           is_popular: boolean | null
           product_benefits: string | null
@@ -245,6 +300,10 @@ export type Database = {
           disqualifying_health_conditions?: string[] | null
           disqualifying_medications?: string[] | null
           gender?: string | null
+          height_feet_max?: number | null
+          height_feet_min?: number | null
+          height_inches_max?: number | null
+          height_inches_min?: number | null
           id?: string
           is_popular?: boolean | null
           product_benefits?: string | null
@@ -263,6 +322,10 @@ export type Database = {
           disqualifying_health_conditions?: string[] | null
           disqualifying_medications?: string[] | null
           gender?: string | null
+          height_feet_max?: number | null
+          height_feet_min?: number | null
+          height_inches_max?: number | null
+          height_inches_min?: number | null
           id?: string
           is_popular?: boolean | null
           product_benefits?: string | null
@@ -835,6 +898,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      execute_sql: {
+        Args: { sql: string }
+        Returns: undefined
+      }
       is_age_in_range: {
         Args: { client_age: number; age_range: string }
         Returns: boolean

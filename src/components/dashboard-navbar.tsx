@@ -109,7 +109,7 @@ export default function DashboardNavbar() {
               <DropdownMenuItem
                 onClick={async () => {
                   await supabase.auth.signOut();
-                  router.push("/");
+                  window.location.href = "/sign-in";
                 }}
               >
                 Sign out

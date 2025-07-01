@@ -1,4 +1,4 @@
-import { TempoInit } from "@/components/tempo-init";
+import { TempoInit } from "./tempo-init";
 import { BetaFeedbackButton } from "@/components/beta-feedback-button";
 import { Toaster } from "@/components/ui/toaster";
 import type { Metadata } from "next";
@@ -40,8 +40,8 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <Script src="https://api.tempolabs.ai/proxy-asset?url=https://storage.googleapis.com/tempo-public-assets/error-handling.js" />
       <body className={inter.className}>
+        <Script src="https://api.tempo.new/proxy-asset?url=https://storage.googleapis.com/tempo-public-assets/error-handling.js" />
         {children}
         <BetaFeedbackButton />
         <TempoInit />
