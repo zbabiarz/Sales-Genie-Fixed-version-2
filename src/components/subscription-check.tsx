@@ -48,8 +48,8 @@ export function SubscriptionCheck({
           .or(
             `user_id.eq.${data.user.id},metadata->>'user_id'.eq.${data.user.id},metadata->>'userId'.eq.${data.user.id},metadata->>'client_reference_id'.eq.${data.user.id}`,
           )
-          .or(`status.eq.active,status.eq.trialing`)
-          .single();
+          .in("status", ["active", "trialing"])
+          .maybeSingle();
 
         console.log("Direct user ID subscription check result:", {
           subscription,
@@ -73,8 +73,8 @@ export function SubscriptionCheck({
             .or(
               `metadata->>'email'.eq.${data.user.email},metadata->>'customer_email'.eq.${data.user.email}`,
             )
-            .or(`status.eq.active,status.eq.trialing`)
-            .single();
+            .in("status", ["active", "trialing"])
+            .maybeSingle();
 
           console.log("Email-based subscription check result:", {
             userByEmail,
