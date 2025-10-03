@@ -86,6 +86,7 @@ export const signUpAction = async (formData: FormData) => {
             name: fullName,
             full_name: fullName,
             email: email,
+            role: "user",
             token_identifier: user.id,
             created_at: new Date().toISOString(),
           };

@@ -17,11 +17,32 @@ import {
   BrainCircuit,
   Settings,
 } from "lucide-react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 export default function DashboardNavbar() {
   const supabase = createClient();
   const router = useRouter();
+  const [userRole, setUserRole] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchUserRole = async () => {
+      const { data } = await supabase.auth.getUser();
+      if (data.user) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", data.user.id)
+          .single();
+
+        if (userData) {
+          setUserRole(userData.role);
+        }
+      }
+    };
+
+    fetchUserRole();
+  }, [supabase]);
 
   return (
     <nav className="w-full border-b border-gray-200 bg-white py-4">
@@ -79,6 +100,15 @@ export default function DashboardNavbar() {
             <BrainCircuit className="h-4 w-4" />
             <span>AI Assistant</span>
           </Link>
+          {userRole === "admin" && (
+            <Link
+              href="/dashboard?tab=pdf-scrape"
+              className="text-gray-600 hover:text-teal-600 transition-colors flex items-center gap-2"
+            >
+              <Settings className="h-4 w-4" />
+              <span>PDF Scrape</span>
+            </Link>
+          )}
         </div>
         <div className="flex gap-4 items-center">
           <DropdownMenu>

@@ -305,7 +305,9 @@ export function ClientForm() {
   // Helper function to determine allowed coverage types
   function getAllowedCoverageTypes(dependents: Dependent[]) {
     const hasSpouse = dependents.some((dep) => dep.relationship === "spouse");
-    const numDependents = dependents.filter((dep) => dep.relationship !== "spouse").length;
+    const numDependents = dependents.filter(
+      (dep) => dep.relationship !== "spouse",
+    ).length;
 
     if (!hasSpouse && numDependents === 0) {
       // No Dependent, No Spouse
@@ -345,39 +347,7 @@ export function ClientForm() {
     const searchParams = new URLSearchParams(window.location.search);
     const clientIdFromUrl = searchParams.get("clientId");
 
-    try {
-      const { data: allPlans, error: plansError } = await supabase
-        .from("insurance_plans")
-        .select("*");
-
-      if (plansError) throw plansError;
-
-      console.log(
-        `Fetched ${allPlans?.length || 0} insurance plans from database`,
-      );
-
-      if (allPlans && allPlans.length > 0) {
-        // Filter plans by allowed coverage types first
-        const allowedCoverageTypes = getAllowedCoverageTypes(dependents);
-        const filteredPlans = allPlans.filter((plan) =>
-          allowedCoverageTypes.includes(plan.coverage_type)
-        );
-
-        const plansWithStatus = filteredPlans.map((plan) => ({
-          ...plan,
-          eligibility_status: "eligible",
-        }));
-
-        setMatchingPlans(plansWithStatus);
-      } else {
-        console.log("No insurance plans found in database");
-      }
-    } catch (error) {
-      console.error("Error fetching insurance plans:", error);
-    }
-
-    setShowResults(true);
-    setActiveTab("results");
+    // DON'T show results tab yet - wait until we get results
 
     let existingClient = false;
     let existingClientId = null;
@@ -503,14 +473,23 @@ export function ClientForm() {
           },
         );
 
-        if (error) throw error;
+        if (error) {
+          console.error("Edge function error:", error);
+          throw new Error(
+            `Plan matching service error: ${error.message || "Unknown error"}`,
+          );
+        }
 
         const plansWithStatus = (data.matchingPlans || []).map((plan) => ({
           ...plan,
           eligibility_status: "eligible",
         }));
+        console.log("Successfully matched plans:", plansWithStatus.length);
+        setMatchingPlans(plansWithStatus);
 
-        // setMatchingPlans(plansWithStatus);
+        // NOW show results tab after we have results
+        setShowResults(true);
+        setActiveTab("results");
       } catch (edgeFunctionError) {
         console.error("Edge function error:", edgeFunctionError);
 
@@ -774,6 +753,8 @@ export function ClientForm() {
         }));
 
         setMatchingPlans(plansWithStatus);
+        setShowResults(true);
+        setActiveTab("results");
       }
 
       try {
@@ -1320,10 +1301,11 @@ export function ClientForm() {
                         onClick={() =>
                           handleHealthConditionToggle(condition.name)
                         }
-                        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${clientData.health_conditions.includes(condition.name)
-                          ? "bg-green-100 text-green-800 border border-green-300"
-                          : "bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200"
-                          }`}
+                        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                          clientData.health_conditions.includes(condition.name)
+                            ? "bg-green-100 text-green-800 border border-green-300"
+                            : "bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200"
+                        }`}
                       >
                         {condition.name}
                       </button>
@@ -1377,10 +1359,11 @@ export function ClientForm() {
                         key={medication.id}
                         type="button"
                         onClick={() => handleMedicationToggle(medication.name)}
-                        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${clientData.medications.includes(medication.name)
-                          ? "bg-green-100 text-green-800 border border-green-300"
-                          : "bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200"
-                          }`}
+                        className={`px-3 py-1.5 rounded-full text-sm transition-colors ${
+                          clientData.medications.includes(medication.name)
+                            ? "bg-green-100 text-green-800 border border-green-300"
+                            : "bg-gray-100 text-gray-800 border border-gray-200 hover:bg-gray-200"
+                        }`}
                       >
                         {medication.name}
                       </button>

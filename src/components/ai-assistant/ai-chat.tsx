@@ -23,6 +23,13 @@ export function AIChat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const supabase = createClient();
 
+  // Pre-prompt questions for quick access
+  const prePromptQuestions = [
+    "Does Manhattan life accept COPD for affordable choice",
+    "Does the physicians mutual dental plans have any waiting periods?",
+    "If my client lives in Oregon can he qualify for the PSM plan?",
+  ];
+
   // Load conversation history when component mounts
   useEffect(() => {
     const loadConversationHistory = async () => {
@@ -197,8 +204,11 @@ export function AIChat() {
 
   const handleSend = async () => {
     if (!input.trim()) return;
+    sendMessage(input.trim());
+  };
 
-    const userMessage = { role: "user" as const, content: input };
+  const sendMessage = async (messageContent: string) => {
+    const userMessage = { role: "user" as const, content: messageContent };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
@@ -226,7 +236,7 @@ export function AIChat() {
               user_id: userData.user.id,
               thread_id: threadId,
               role: "user",
-              content: input,
+              content: messageContent,
             });
 
           if (insertError) {
@@ -268,7 +278,7 @@ export function AIChat() {
             user_id: userData.user.id,
             activity_type: "ai_chat",
             details: {
-              message_length: input.length,
+              message_length: messageContent.length,
               time_saved_minutes: 5, // Explicitly save 5 minutes per interaction
             },
           })
@@ -327,7 +337,7 @@ export function AIChat() {
         // Call the API route with thread ID if available
         // Ensure all data is properly defined before sending
         const requestBody = {
-          message: userMessage.content,
+          message: messageContent,
           context: context || {},
           threadId: threadId || null,
           userId: userData.user?.id,
@@ -372,7 +382,7 @@ export function AIChat() {
                   user_id: userData.user.id,
                   thread_id: data.threadId,
                   role: "user",
-                  content: userMessage.content,
+                  content: messageContent,
                 });
 
               if (insertError) {
@@ -442,14 +452,47 @@ export function AIChat() {
             console.error("Error storing assistant message:", storeError);
           }
         } else {
-          // If API call fails, remove the thinking message and show error
+          // If API call fails, get the specific error message from the API
           console.error("API call failed with status:", apiResponse.status);
+
+          let errorMessage =
+            "I'm sorry, I encountered an error processing your request. Please try again later.";
 
           try {
             const errorData = await apiResponse.json();
             console.error("Error details:", errorData);
+
+            // Use the specific error message from the API if available
+            if (errorData.error && typeof errorData.error === "string") {
+              errorMessage = errorData.error;
+            }
           } catch (e) {
             console.error("Could not parse error response");
+            // Provide status-specific error messages if we can't parse the response
+            switch (apiResponse.status) {
+              case 429:
+                errorMessage =
+                  "We're experiencing high demand. Please try again in a moment.";
+                break;
+              case 401:
+                errorMessage =
+                  "Authentication error with AI service. Please contact support.";
+                break;
+              case 408:
+                errorMessage =
+                  "The request took too long to process. Please try with a simpler query.";
+                break;
+              case 413:
+                errorMessage =
+                  "Your query contains too much information. Please try a shorter question.";
+                break;
+              case 500:
+                errorMessage =
+                  "The AI service is temporarily unavailable. Please try again in a few minutes.";
+                break;
+              default:
+                errorMessage = `Service error (${apiResponse.status}). Please try again or contact support if the issue persists.`;
+            }
           }
 
           setMessages((prev) => {
@@ -460,11 +503,10 @@ export function AIChat() {
               newMessages[newMessages.length - 1].content === ""
             ) {
               newMessages.pop(); // Remove the empty thinking message
-              // Add error message
+              // Add specific error message
               newMessages.push({
                 role: "assistant",
-                content:
-                  "I'm sorry, I encountered an error processing your request. Please try again later.",
+                content: errorMessage,
               });
             }
             return newMessages;
@@ -472,7 +514,37 @@ export function AIChat() {
         }
       } catch (apiError) {
         console.error("Error calling OpenAI API:", apiError);
-        // Remove the thinking message on error and add error message
+
+        // Determine specific error message based on the error type
+        let errorMessage =
+          "I'm sorry, I encountered an error connecting to the AI service. Please check your network connection and try again.";
+
+        if (apiError instanceof Error) {
+          // Network/connection errors
+          if (
+            apiError.message.includes("fetch") ||
+            apiError.message.includes("network") ||
+            apiError.message.includes("Failed to fetch")
+          ) {
+            errorMessage =
+              "Unable to connect to the AI service. Please check your internet connection and try again.";
+          }
+          // Timeout errors
+          else if (
+            apiError.message.includes("timeout") ||
+            apiError.message.includes("timed out")
+          ) {
+            errorMessage =
+              "The request took too long to process. Please try with a simpler query or try again later.";
+          }
+          // Generic error with more helpful message
+          else {
+            errorMessage =
+              "An unexpected error occurred while processing your request. Please try again, and if the problem persists, contact support.";
+          }
+        }
+
+        // Remove the thinking message on error and add specific error message
         setMessages((prev) => {
           const newMessages = [...prev];
           if (
@@ -481,11 +553,10 @@ export function AIChat() {
             newMessages[newMessages.length - 1].content === ""
           ) {
             newMessages.pop(); // Remove the empty thinking message
-            // Add error message
+            // Add specific error message
             newMessages.push({
               role: "assistant",
-              content:
-                "I'm sorry, I encountered an error connecting to the AI service. Please check your network connection and try again.",
+              content: errorMessage,
             });
           }
           return newMessages;
@@ -493,7 +564,35 @@ export function AIChat() {
       }
     } catch (error) {
       console.error("Error processing query:", error);
-      // Remove the thinking message on error
+
+      // Determine specific error message
+      let errorMessage = "An unexpected error occurred. Please try again.";
+
+      if (error instanceof Error) {
+        // Database/authentication errors
+        if (
+          error.message.includes("auth") ||
+          error.message.includes("authentication")
+        ) {
+          errorMessage =
+            "Authentication error. Please sign out and sign back in, then try again.";
+        }
+        // Database connection errors
+        else if (
+          error.message.includes("database") ||
+          error.message.includes("supabase")
+        ) {
+          errorMessage =
+            "Database connection error. Please try again in a moment.";
+        }
+        // Generic error with helpful message
+        else {
+          errorMessage =
+            "An error occurred while setting up your request. Please try again, and if the problem continues, contact support.";
+        }
+      }
+
+      // Remove the thinking message on error and add specific error message
       setMessages((prev) => {
         const newMessages = [...prev];
         if (
@@ -502,6 +601,11 @@ export function AIChat() {
           newMessages[newMessages.length - 1].content === ""
         ) {
           newMessages.pop(); // Remove the empty thinking message
+          // Add specific error message
+          newMessages.push({
+            role: "assistant",
+            content: errorMessage,
+          });
         }
         return newMessages;
       });
@@ -549,6 +653,21 @@ export function AIChat() {
     }
   };
 
+  const handlePrePromptClick = (question: string) => {
+    if (isLoading) return;
+    setInput(question);
+    // Automatically send the question
+    setTimeout(() => {
+      const userMessage = { role: "user" as const, content: question };
+      setMessages((prev) => [...prev, userMessage]);
+      setInput("");
+      setIsLoading(true);
+
+      // Call the same logic as handleSend but with the pre-prompt question
+      sendMessage(question);
+    }, 100);
+  };
+
   return (
     <Card className="flex flex-col h-full">
       <CardHeader>
@@ -582,6 +701,29 @@ export function AIChat() {
         </div>
       </CardHeader>
       <CardContent className="flex-1 flex flex-col h-[500px]">
+        {/* Pre-prompt bubbles - show at the top throughout the chat */}
+        {
+          <div className="mb-4 space-y-2">
+            <p className="text-sm text-muted-foreground mb-2">
+              Quick questions:
+            </p>
+            <div className="flex flex-wrap gap-2">
+              {prePromptQuestions.map((question, index) => (
+                <Button
+                  key={index}
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handlePrePromptClick(question)}
+                  disabled={isLoading}
+                  className="text-left h-auto py-2 px-3 whitespace-normal text-wrap max-w-xs"
+                >
+                  {question}
+                </Button>
+              ))}
+            </div>
+          </div>
+        }
+
         <div className="flex-1 overflow-y-auto mb-4 space-y-4">
           {messages.map((message, index) => (
             <div
