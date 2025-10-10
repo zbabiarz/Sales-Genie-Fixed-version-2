@@ -120,15 +120,6 @@ export default function DashboardNavbar() {
             <DropdownMenuContent align="end">
               <DropdownMenuItem>
                 <Link
-                  href="/dashboard/profile"
-                  className="flex items-center gap-2 w-full"
-                >
-                  <UserCircle className="h-4 w-4" />
-                  <span>Profile</span>
-                </Link>
-              </DropdownMenuItem>
-              <DropdownMenuItem>
-                <Link
                   href="/dashboard/settings"
                   className="flex items-center gap-2 w-full"
                 >
