@@ -9,7 +9,7 @@ export function TempoInit() {
       try {
         if (process.env.NEXT_PUBLIC_TEMPO) {
           const { TempoDevtools } = await import("tempo-devtools");
-          TempoDevtools.init();
+          /* TempoDevtools.init() [deprecated] */;
         }
       } catch (error) {
         console.warn("Failed to initialize Tempo devtools:", error);

@@ -15,12 +15,18 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { ClipboardCheck, MessageSquareText, Users } from "lucide-react";
+import {
+  ClipboardCheck,
+  MessageSquareText,
+  Users,
+  Settings,
+} from "lucide-react";
 import { RobotIcon } from "@/components/robot-icon";
 import { ClientIntakePage } from "@/components/client-intake/client-intake-page";
 import { AIChat } from "@/components/ai-assistant/ai-chat";
 import { CallAnalyzerPage } from "@/components/sales-call/call-analyzer-page";
 import { ClientManagement } from "@/components/client-management/client-management";
+import { PDFUpload } from "@/components/pdf-upload";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState, useRef, Suspense } from "react";
 
@@ -37,6 +43,7 @@ function SearchParamsWrapper({
 
 export default function Dashboard() {
   const [user, setUser] = useState<any>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState("ai");
 
   // Create refs for each section to enable scrolling
@@ -51,6 +58,17 @@ export default function Dashboard() {
       const { data } = await supabase.auth.getUser();
       if (data.user) {
         setUser(data.user);
+
+        // Fetch user role from database
+        const { data: userData } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", data.user.id)
+          .single();
+
+        if (userData) {
+          setUserRole(userData.role);
+        }
       } else {
         window.location.href = "/sign-in";
       }
@@ -91,13 +109,15 @@ export default function Dashboard() {
             <SearchParamsWrapper>
               {(tabParam) => {
                 useEffect(() => {
-                  if (
-                    tabParam &&
-                    ["ai", "intake", "calls", "clients"].includes(tabParam)
-                  ) {
+                  const validTabs = ["ai", "intake", "calls", "clients"];
+                  if (userRole === "admin") {
+                    validTabs.push("pdf-scrape");
+                  }
+
+                  if (tabParam && validTabs.includes(tabParam)) {
                     setActiveTab(tabParam);
                   }
-                }, [tabParam]);
+                }, [tabParam, userRole]);
 
                 return (
                   <Tabs
@@ -114,7 +134,9 @@ export default function Dashboard() {
                     }}
                     className="w-full"
                   >
-                    <TabsList className="grid w-full grid-cols-4 mb-8 overflow-x-auto">
+                    <TabsList
+                      className={`grid w-full ${userRole === "admin" ? "grid-cols-5" : "grid-cols-4"} mb-8 overflow-x-auto`}
+                    >
                       <TabsTrigger
                         value="ai"
                         className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
@@ -151,6 +173,17 @@ export default function Dashboard() {
                           Clients
                         </span>
                       </TabsTrigger>
+                      {userRole === "admin" && (
+                        <TabsTrigger
+                          value="pdf-scrape"
+                          className="flex flex-col md:flex-row items-center justify-center md:gap-2 px-1 md:px-3 py-2"
+                        >
+                          <Settings className="h-5 w-5 md:h-4 md:w-4 text-teal-600" />
+                          <span className="text-[10px] md:text-sm mt-1 md:mt-0 block font-medium">
+                            PDF Scrape
+                          </span>
+                        </TabsTrigger>
+                      )}
                     </TabsList>
 
                     <TabsContent value="ai">
@@ -235,6 +268,22 @@ export default function Dashboard() {
                         </CardContent>
                       </Card>
                     </TabsContent>
+
+                    {userRole === "admin" && (
+                      <TabsContent value="pdf-scrape">
+                        <Card>
+                          <CardHeader>
+                            <CardTitle>PDF Scrape</CardTitle>
+                            <CardDescription>
+                              Upload PDF files to extract insurance plan data
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent>
+                            <PDFUpload />
+                          </CardContent>
+                        </Card>
+                      </TabsContent>
+                    )}
                   </Tabs>
                 );
               }}

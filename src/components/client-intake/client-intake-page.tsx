@@ -23,18 +23,6 @@ export function ClientIntakePage() {
 
         <ClientForm />
       </div>
-
-      {/* Temporary overlay to disable feature */}
-      <div className="absolute inset-0 bg-white bg-opacity-75 flex items-center justify-center z-50 rounded-lg">
-        <div className="text-center p-8">
-          <h3 className="text-2xl font-semibold text-gray-800 mb-2">
-            This feature is coming soon!
-          </h3>
-          <p className="text-gray-600">
-            We're working hard to bring you this amazing tool.
-          </p>
-        </div>
-      </div>
     </div>
   );
 }

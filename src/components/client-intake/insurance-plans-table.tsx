@@ -79,7 +79,9 @@ export function InsurancePlansTable({
     {},
   );
   const [selectingPlan, setSelectingPlan] = useState<string | null>(null);
-  const [recentlySelectedPlans, setRecentlySelectedPlans] = useState<Record<string, boolean>>({});
+  const [recentlySelectedPlans, setRecentlySelectedPlans] = useState<
+    Record<string, boolean>
+  >({});
   const supabase = createClient();
 
   // Get unique categories for filter
@@ -180,11 +182,11 @@ export function InsurancePlansTable({
       });
 
       // Set recently selected state for visual feedback
-      setRecentlySelectedPlans(prev => ({ ...prev, [planId]: true }));
+      setRecentlySelectedPlans((prev) => ({ ...prev, [planId]: true }));
 
       // Clear the recently selected state after 3 seconds
       setTimeout(() => {
-        setRecentlySelectedPlans(prev => {
+        setRecentlySelectedPlans((prev) => {
           const newState = { ...prev };
           delete newState[planId];
           return newState;
@@ -571,9 +573,7 @@ export function InsurancePlansTable({
                       <ArrowUpDown className="h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead>
-                    Coverage Type
-                  </TableHead>
+                  <TableHead>Coverage Type</TableHead>
                   <TableHead className="text-right">
                     <Button
                       variant="ghost"
@@ -757,10 +757,11 @@ export function InsurancePlansTable({
                             <div className="mt-4 flex justify-end">
                               <Button
                                 size="sm"
-                                className={`${recentlySelectedPlans[plan.id]
-                                  ? "bg-green-600 hover:bg-green-700"
-                                  : "bg-teal-600 hover:bg-teal-700"
-                                  }`}
+                                className={`${
+                                  recentlySelectedPlans[plan.id]
+                                    ? "bg-green-600 hover:bg-green-700"
+                                    : "bg-teal-600 hover:bg-teal-700"
+                                }`}
                                 onClick={() => handleSelectPlan(plan.id)}
                                 disabled={selectingPlan === plan.id}
                               >
@@ -770,9 +771,7 @@ export function InsurancePlansTable({
                                     Selecting...
                                   </>
                                 ) : recentlySelectedPlans[plan.id] ? (
-                                  <>
-                                    ✓ Selected
-                                  </>
+                                  <>✓ Selected</>
                                 ) : (
                                   "Select This Plan"
                                 )}
@@ -836,9 +835,7 @@ export function InsurancePlansTable({
                       <ArrowUpDown className="h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead>
-                    Coverage Type
-                  </TableHead>
+                  <TableHead>Coverage Type</TableHead>
                   <TableHead className="text-right">
                     <Button
                       variant="ghost"
@@ -1020,10 +1017,11 @@ export function InsurancePlansTable({
                             <div className="mt-4 flex justify-end">
                               <Button
                                 size="sm"
-                                className={`${recentlySelectedPlans[plan.id]
-                                  ? "bg-green-600 hover:bg-green-700"
-                                  : "bg-teal-600 hover:bg-teal-700"
-                                  }`}
+                                className={`${
+                                  recentlySelectedPlans[plan.id]
+                                    ? "bg-green-600 hover:bg-green-700"
+                                    : "bg-teal-600 hover:bg-teal-700"
+                                }`}
                                 onClick={() => handleSelectPlan(plan.id)}
                                 disabled={selectingPlan === plan.id}
                               >
@@ -1033,9 +1031,7 @@ export function InsurancePlansTable({
                                     Selecting...
                                   </>
                                 ) : recentlySelectedPlans[plan.id] ? (
-                                  <>
-                                    ✓ Selected
-                                  </>
+                                  <>✓ Selected</>
                                 ) : (
                                   "Select This Plan"
                                 )}
@@ -1096,9 +1092,7 @@ export function InsurancePlansTable({
                       <ArrowUpDown className="h-3 w-3" />
                     </Button>
                   </TableHead>
-                  <TableHead>
-                    Coverage Type
-                  </TableHead>
+                  <TableHead>Coverage Type</TableHead>
                   <TableHead className="text-right">
                     <Button
                       variant="ghost"
@@ -1213,10 +1207,11 @@ export function InsurancePlansTable({
                             <div className="mt-4 flex justify-end">
                               <Button
                                 size="sm"
-                                className={`${recentlySelectedPlans[plan.id]
-                                  ? "bg-green-600 hover:bg-green-700"
-                                  : "bg-teal-600 hover:bg-teal-700"
-                                  }`}
+                                className={`${
+                                  recentlySelectedPlans[plan.id]
+                                    ? "bg-green-600 hover:bg-green-700"
+                                    : "bg-teal-600 hover:bg-teal-700"
+                                }`}
                                 onClick={() => handleSelectPlan(plan.id)}
                                 disabled={selectingPlan === plan.id}
                               >
@@ -1226,9 +1221,7 @@ export function InsurancePlansTable({
                                     Selecting...
                                   </>
                                 ) : recentlySelectedPlans[plan.id] ? (
-                                  <>
-                                    ✓ Selected
-                                  </>
+                                  <>✓ Selected</>
                                 ) : (
                                   "Select This Plan"
                                 )}
