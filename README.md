@@ -1,11 +1,7 @@
-<<<<<<< .merge_file_NEaVMG
-Test
-=======
 Seeing if it pushes new update with this change on commit
 
-zach test
+okay I'll seeeee
 
-zach test 2
 
->>>>>>> .merge_file_YXdDPA
 
+hey
