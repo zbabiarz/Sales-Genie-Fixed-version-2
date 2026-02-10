@@ -466,295 +466,38 @@ export function ClientForm() {
       };
 
       try {
-        const { data, error } = await supabase.functions.invoke(
-          "supabase-functions-match-insurance-plans",
-          {
-            body: formattedData,
-          },
-        );
-
-        if (error) {
-          console.error("Edge function error:", error);
-          throw new Error(
-            `Plan matching service error: ${error.message || "Unknown error"}`,
-          );
-        }
-
-        const plansWithStatus = (data.matchingPlans || []).map((plan) => ({
-          ...plan,
-          eligibility_status: "eligible",
-        }));
-        console.log("Successfully matched plans:", plansWithStatus.length);
-        setMatchingPlans(plansWithStatus);
-
-        // NOW show results tab after we have results
-        setShowResults(true);
-        setActiveTab("results");
-      } catch (edgeFunctionError) {
-        console.error("Edge function error:", edgeFunctionError);
-
+        // Query clean plan data from insurance_plans_v2
         const { data: allPlans, error: plansError } = await supabase
-          .from("insurance_plans")
+          .from("insurance_plans_v2")
           .select("*");
 
         if (plansError) throw plansError;
 
-        console.log(`Total plans found: ${allPlans.length}`);
-        const reservePlans = allPlans.filter((plan) =>
-          plan.company_name.includes("Reserve National"),
-        );
-        console.log(`Reserve National plans found: ${reservePlans.length}`);
-        if (reservePlans.length > 0) {
-          console.log("Reserve National plan details:", reservePlans[0]);
-        }
+        console.log(`Total v2 plans found: ${allPlans.length}`);
 
-        const matchingPlans = allPlans.filter((plan) => {
-          if (
-            plan.available_states &&
-            plan.available_states.length > 0 &&
-            !plan.available_states.includes(clientData.state)
-          ) {
-            console.log(
-              `State mismatch: Client state ${clientData.state} not in plan states ${JSON.stringify(plan.available_states)}`,
-            );
-            return false;
-          }
+        // Import and use the v2 matching logic
+        const { filterMatchingPlans } = await import("@/lib/insurance-matching");
+        const matchingPlans = filterMatchingPlans(formattedData, allPlans);
 
-          const coverageType = dependents.length > 0 ? "family" : "individual";
-          if (
-            coverageType === "individual" &&
-            plan.coverage_type === "family"
-          ) {
-            console.log(`Filtering out family plan: ${plan.product_name}`);
-            return false;
-          } else if (
-            coverageType === "family" &&
-            plan.coverage_type === "individual"
-          ) {
-            console.log(
-              `Filtering out individual-only plan for family: ${plan.product_name}`,
-            );
-            return false;
-          }
+        console.log(`Matching plans: ${matchingPlans.length} of ${allPlans.length}`);
 
-          if (clientData.age) {
-            console.log(
-              `Checking age eligibility: Client age ${clientData.age}, Plan age range ${plan.age_range || "All Ages"}`,
-            );
-
-            // If plan has a specific age range (not "All Ages" or empty)
-            if (plan.age_range && plan.age_range !== "All Ages") {
-              // Parse age range in format '18-29', '30-44', '45-54', '55-64', '65+'
-              let isEligibleAge = false;
-
-              if (plan.age_range.endsWith("+")) {
-                // For ranges like '65+'
-                const minAge = parseInt(plan.age_range.replace("+", ""));
-                isEligibleAge = clientData.age >= minAge;
-                console.log(
-                  `Range ${plan.age_range}: minAge=${minAge}, result=${isEligibleAge}`,
-                );
-              } else if (plan.age_range.includes("-")) {
-                // For ranges like '18-29'
-                const [minAge, maxAge] = plan.age_range.split("-").map(Number);
-                isEligibleAge =
-                  clientData.age >= minAge && clientData.age <= maxAge;
-                console.log(
-                  `Range ${plan.age_range}: minAge=${minAge}, maxAge=${maxAge}, result=${isEligibleAge}`,
-                );
-              }
-
-              if (!isEligibleAge) {
-                console.log(
-                  `AGE CHECK: FAILED - Age range mismatch: ${clientData.age} not in ${plan.age_range}`,
-                );
-                return false;
-              }
-
-              console.log(
-                `AGE CHECK: PASSED - Client age ${clientData.age} is within plan range ${plan.age_range}`,
-              );
-            } else {
-              console.log(
-                `AGE CHECK: PASSED - Plan has no specific age range (${plan.age_range || "All Ages"})`,
-              );
-            }
-          } else {
-            console.log(
-              `Age check skipped: Client age not provided, Plan age range ${plan.age_range || "All Ages"}`,
-            );
-          }
-
-          if (
-            plan.disqualifying_health_conditions &&
-            plan.disqualifying_health_conditions.length > 0
-          ) {
-            for (const condition of formattedData.health_conditions) {
-              // Check for partial matches in disqualifying conditions
-              const partialMatch = plan.disqualifying_health_conditions.some(
-                (disqualifyingCondition) => {
-                  // Case insensitive check
-                  const clientConditionLower = condition.toLowerCase();
-                  const disqualifyingConditionLower =
-                    disqualifyingCondition.toLowerCase();
-
-                  // Check if client condition is part of a disqualifying condition
-                  // or if disqualifying condition contains the client condition
-                  const isPartialMatch =
-                    disqualifyingConditionLower.includes(
-                      clientConditionLower,
-                    ) ||
-                    clientConditionLower.includes(
-                      disqualifyingConditionLower,
-                    ) ||
-                    // Split by common separators and check each part
-                    disqualifyingConditionLower
-                      .split(/[\/,\-\s]+/)
-                      .some(
-                        (part) =>
-                          part === clientConditionLower ||
-                          (part.length > 3 &&
-                            clientConditionLower.includes(part)),
-                      );
-
-                  console.log(
-                    `Partial match check - Client: "${clientConditionLower}" vs Disqualifying: "${disqualifyingConditionLower}" - Match: ${isPartialMatch}`,
-                  );
-
-                  return isPartialMatch;
-                },
-              );
-
-              if (partialMatch) {
-                console.log(
-                  `HEALTH CONDITIONS CHECK: FAILED - Client has disqualifying condition (partial match): ${condition}`,
-                );
-                return false;
-              }
-            }
-          }
-
-          if (
-            plan.disqualifying_medications &&
-            plan.disqualifying_medications.length > 0
-          ) {
-            for (const medication of formattedData.medications) {
-              if (plan.disqualifying_medications.includes(medication)) {
-                return false;
-              }
-            }
-          }
-
-          if (
-            plan.build_chart_jsonb &&
-            clientData.weight &&
-            clientData.gender
-          ) {
-            console.log(
-              `\n***** PLAN BUILD CHART CHECK: ${plan.company_name} - ${plan.product_name} *****`,
-            );
-            console.log(
-              `Client weight: ${clientData.weight}, gender: ${clientData.gender}`,
-            );
-
-            let maxWeightInChart = 0;
-            let minWeightInChart = Infinity;
-            if (
-              plan.build_chart_jsonb &&
-              Array.isArray(plan.build_chart_jsonb)
-            ) {
-              plan.build_chart_jsonb.forEach((entry) => {
-                if (entry.max_weight > maxWeightInChart) {
-                  maxWeightInChart = entry.max_weight;
-                }
-                if (entry.min_weight < minWeightInChart) {
-                  minWeightInChart = entry.min_weight;
-                }
-              });
-            }
-            console.log(
-              `Build chart weight range: ${minWeightInChart} - ${maxWeightInChart} lbs`,
-            );
-            console.log(
-              `Build chart entries: ${plan.build_chart_jsonb?.length || 0}`,
-            );
-
-            // Ensure weight and height values are properly parsed as numbers
-            const weightNum = parseFloat(String(clientData.weight)) || 0;
-            const heightFeet = parseFloat(String(clientData.height_feet)) || 0;
-            const heightInches =
-              parseFloat(String(clientData.height_inches)) || 0;
-            const legacyHeight = clientData.height
-              ? parseFloat(String(clientData.height))
-              : undefined;
-
-            console.log(
-              `Parsed weight: ${weightNum} lbs (raw: ${clientData.weight}, type: ${typeof weightNum})`,
-            );
-            console.log(
-              `Parsed height: ${heightFeet}ft ${heightInches}in (raw feet: ${clientData.height_feet}, raw inches: ${clientData.height_inches})`,
-            );
-            console.log(
-              `Legacy height: ${legacyHeight !== undefined ? legacyHeight + " inches" : "not provided"}`,
-            );
-
-            // Perform a quick check against the maximum weight in the chart
-            // If weight exceeds the maximum in the chart, we can immediately determine ineligibility
-            if (weightNum > maxWeightInChart) {
-              console.log(
-                `QUICK CHECK FAILED: Client weight ${weightNum} exceeds maximum chart weight ${maxWeightInChart}`,
-              );
-              console.log(`***** END PLAN BUILD CHART CHECK *****\n`);
-              return false;
-            }
-
-            console.log(
-              `Quick check - Client weight ${weightNum} vs chart range ${minWeightInChart}-${maxWeightInChart}`,
-            );
-            console.log(
-              `Weight > Max check: ${weightNum} > ${maxWeightInChart} = ${weightNum > maxWeightInChart}`,
-            );
-            console.log(
-              `Weight < Min check: ${weightNum} < ${minWeightInChart} = ${weightNum < minWeightInChart}`,
-            );
-
-            const isEligibleBuild = checkBuildEligibility(
-              clientData.gender,
-              weightNum,
-              heightFeet,
-              heightInches,
-              legacyHeight,
-              plan.build_chart_jsonb,
-            );
-
-            console.log(
-              `Build eligibility result for ${plan.company_name} - ${plan.product_name}: ${isEligibleBuild}`,
-            );
-
-            if (!isEligibleBuild) {
-              console.log(
-                `BUILD CHART CHECK: FAILED - ${plan.company_name} - ${plan.product_name}: Client weight ${weightNum} outside range for height ${heightFeet}ft ${heightInches}in`,
-              );
-              console.log(`***** END PLAN BUILD CHART CHECK *****\n`);
-              return false;
-            }
-            console.log(
-              `BUILD CHART CHECK: PASSED - ${plan.company_name} - ${plan.product_name}`,
-            );
-            console.log(`***** END PLAN BUILD CHART CHECK *****\n`);
-          }
-
-          return true;
-        });
-
-        const plansWithStatus = matchingPlans.map((plan) => ({
+        const plansWithStatus = matchingPlans.map((plan: any) => ({
           ...plan,
-          eligibility_status: "eligible",
+          eligibility_status: "eligible" as const,
+          // Map v2 fields to what the table component expects
+          product_price: plan.price_min || 0,
+          product_benefits: plan.benefit_summary || plan.key_features?.join(", ") || "Contact carrier for details",
+          coverage_type: plan.plan_type || "individual",
+          age_range: plan.age_min != null || plan.age_max != null
+            ? `${plan.age_min || 0}-${plan.age_max || '99+'}`
+            : "All Ages",
         }));
 
         setMatchingPlans(plansWithStatus);
         setShowResults(true);
         setActiveTab("results");
+      } catch (matchError) {
+        console.error("Plan matching error:", matchError);
       }
 
       try {
